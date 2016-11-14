@@ -82,8 +82,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(favicon(`${__dirname}/public/images/favicon.ico`));
 
 app.use((req, res, next) => {
-  if (process.env.NODE_ENV === 'production') {
-    next(); // skip authorization if in production mode
+  if (process.env.NODE_ENV === 'development') {
+    next(); // skip authorization if in development mode
   } else {
     const token = req.get('Authorization');
     const decodedToken = jwt.decode(token, { complete: true });
