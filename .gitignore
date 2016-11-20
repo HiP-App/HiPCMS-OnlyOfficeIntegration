@@ -1,6 +1,7 @@
 
 npm-debug.log*
 build/Release
+public/files/*
 config/default.json
 node_modules
 .idea

@@ -21,7 +21,7 @@
  * in every copy of the program you distribute.
  * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
  *
-*/
+ */
 
 const express = require('express');
 const path = require('path');
@@ -43,10 +43,13 @@ const configServer = config.get('server');
 const fileChoiceUrl = configServer.has('fileChoiceUrl') ? configServer.get('fileChoiceUrl') : '';
 const siteUrl = configServer.get('siteUrl');
 const plugins = config.get('plugins');
+const permissionService = require('./permissions');
+
+var token;
+var userEmail;
 
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 
 String.prototype.hashCode = function () {
   for (var ret = 0, i = 0, len = this.length; i < len; i++) {
@@ -74,49 +77,75 @@ app.set('view engine', 'ejs');
 
 
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  next();
+  if ('OPTIONS' == req.method) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, access-control-allow-origin');
+    res.sendStatus(200);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    next();
+  }
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(favicon(`${__dirname}/public/images/favicon.ico`));
 
+
+/**
+ * use auth middleware
+ */
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'development') {
     next(); // skip authorization if in development mode
   } else {
-    const token = req.get('Authorization');
-    const decodedToken = jwt.decode(token, { complete: true });
-    const kid = decodedToken.header.kid;
-    const issuer = decodedToken.payload.iss;
+    console.log("Call: " + req.originalUrl);
+    if (req.originalUrl.indexOf('track') !== -1) {
+      console.log('skip auth');
+      next();
+      return;
+    }
+    try {
+      console.log('auth');
+      const authToken = req.get('Authorization');
+      const at = authToken.slice("Bearer ".length, authToken.length);
+      const decodedToken = jwt.decode(at, {complete: true});
+      const kid = decodedToken.header.kid;
+      const issuer = decodedToken.payload.iss;
 
-    const url = `${issuer}.well-known/jwks`;
+      const url = `${issuer}.well-known/jwks`;
 
-    request({
-      url,
-      json: true,
-    }, (error, response, body) => {
-      if (!error && response.statusCode === 200) {
-        const jwk = jwksUtils.findJWK(kid, body);
+      userEmail = decodedToken.payload.unique_name;
+      token = at;
 
-        if (jws.verify(token, jwk)) {
-          console.log('client authentificated');
-          next();
-        } else {
-          throw new Error();
+      request({
+        url,
+        json: true,
+      }, (error, response, body) => {
+        if (!error && response.statusCode === 200) {
+          const jwk = jwksUtils.findJWK(kid, body);
+
+          if (jws.verify(at, jwk)) {
+            console.log('client authentificated');
+            next();
+          } else {
+            throw new Error();
+          }
         }
-      }
-    });
+      });
+    } catch (e) {
+      res.sendStatus(401);
+    }
   }
 });
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-
+app.use(bodyParser.urlencoded({extended: false}));
 
 app.get('/', (req, res) => {
   try {
     docManager.init(__dirname, req, res);
+    console.log('test');
 
     res.render('index', {
       preloaderUrl: siteUrl + configServer.get('preloaderUrl'),
@@ -128,8 +157,7 @@ app.get('/', (req, res) => {
   } catch (ex) {
     console.log(ex);
     res.status(500);
-    res.render('error', { message: 'Server error' });
-    return;
+    res.render('error', {message: 'Server error'});
   }
 });
 
@@ -151,7 +179,7 @@ app.post('/upload', (req, res) => {
 
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
       fileSystem.unlinkSync(file.path);
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.writeHead(200, {'Content-Type': 'text/plain'});
       res.write('{ "error": "File size is incorrect"}');
       res.end();
       return;
@@ -162,14 +190,14 @@ app.post('/upload', (req, res) => {
 
     if (exts.indexOf(curExt) === -1) {
       fileSystem.unlinkSync(file.path);
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.writeHead(200, {'Content-Type': 'text/plain'});
       res.write('{ "error": "File type is not supported"}');
       res.end();
       return;
     }
 
     fileSystem.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.writeHead(200, {'Content-Type': 'text/plain'});
       if (err2) {
         res.write(`{ "error": "${err2}"}`);
       } else {
@@ -198,11 +226,17 @@ app.get('/convert', (req, res) => {
   const writeResult = function (filename, step, error) {
     const result = {};
 
-    if (filename !== null) { result.filename = filename; }
+    if (filename !== null) {
+      result.filename = filename;
+    }
 
-    if (step !== null) { result.step = step; }
+    if (step !== null) {
+      result.step = step;
+    }
 
-    if (error !== null) { result.error = error; }
+    if (error !== null) {
+      result.error = error;
+    }
 
     response.write(JSON.stringify(result));
     response.end();
@@ -301,6 +335,7 @@ app.delete('/file', (req, res) => {
 });
 
 app.post('/track', (req, res) => {
+  console.log('POST ' + req.originalUrl);
   docManager.init(__dirname, req, res);
 
   const initialUserAddress = req.query.useraddress;
@@ -312,6 +347,7 @@ app.post('/track', (req, res) => {
       let downloadUri = body.url;
       const curExt = fileUtility.getFileExtension(fileName);
       const downloadExt = fileUtility.getFileExtension(downloadUri);
+      const topicId = fileUtility.getFileName(fileName, true);
 
       if (downloadExt != curExt) {
         const key = documentService.generateRevisionId(downloadUri);
@@ -327,25 +363,25 @@ app.post('/track', (req, res) => {
       }
 
       try {
-        const path = docManager.storagePath(fileName, userAddress);
+        const path = docManager.storagePath(fileName, topicId);
 
         if (newVersion) {
-          let historyPath = docManager.historyPath(fileName, userAddress);
+          let historyPath = docManager.historyPath(fileName, topicId);
           if (historyPath === '') {
-            historyPath = docManager.historyPath(fileName, userAddress, true);
+            historyPath = docManager.historyPath(fileName, topicId, true);
             docManager.createDirectory(historyPath);
           }
 
           const countVersion = docManager.countVersion(historyPath);
           version = countVersion + 1;
           const versionPath = docManager.versionPath(
-            fileName, userAddress, version);
+            fileName, topicId, version);
           docManager.createDirectory(versionPath);
 
           const downloadZip = body.changesurl;
           if (downloadZip) {
             const pathChanges = docManager.diffPath(
-              fileName, userAddress, version);
+              fileName, topicId, version);
             const diffZip = syncRequest('GET', downloadZip);
             fileSystem.writeFileSync(pathChanges, diffZip.getBody());
           }
@@ -353,15 +389,15 @@ app.post('/track', (req, res) => {
           const changeshistory = body.changeshistory;
           if (changeshistory) {
             const pathChangesJson = docManager.changesPath(
-              fileName, userAddress, version);
+              fileName, topicId, version);
             fileSystem.writeFileSync(pathChangesJson, body.changeshistory);
           }
 
-          const pathKey = docManager.keyPath(fileName, userAddress, version);
+          const pathKey = docManager.keyPath(fileName, topicId, version);
           fileSystem.writeFileSync(pathKey, body.key);
 
           const pathPrev = docManager.prevFilePath(
-            fileName, userAddress, version);
+            fileName, topicId, version);
           fileSystem.writeFileSync(pathPrev, fileSystem.readFileSync(path));
         }
 
@@ -412,49 +448,90 @@ app.post('/track', (req, res) => {
   }
 });
 
-app.get('/editor', (req, res) => {
-  try {
-    docManager.init(__dirname, req, res);
+app.get('/topic/:id/exists', (req,res) => {
+  docManager.init(__dirname, req, res);
 
-    const fileExt = req.query.fileExt;
+  const fileName = fileUtility.getFileName(req.params.id + '.docx');
+  const topicId = req.params.id;
+
+  if(docManager.fileExists(fileName, topicId)) {
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(404);
+  }
+});
+
+/**
+ * POST /topic
+ * creates a new document with the topic id as name
+ */
+app.post('/topic', (req, res) => {
+  docManager.init(__dirname, req, res);
+
+  const topicId = req.body.topicId ? req.body.topicId : -1;
+
+  if (topicId == -1) {
+    res.status(400, "No Topic id given");
+    res.render('error', {message: 'No Topic id given\n' + JSON.stringify(req.body) + JSON.stringify(req.query)});
+  } else {
+    // user has permission to edit a topic?
+    permissionService.canEditTopicDocument(token, topicId, function (allowed) {
+      if (allowed) {
+        let success = docManager.createTopicDocument(topicId + '.docx', topicId, userEmail);
+        if (success) {
+          res.sendStatus(200);
+        } else {
+          res.sendStatus(409);
+        }
+      } else {
+        res.sendStatus(401);
+      }
+    });
+  }
+});
+
+app.get('/topic/:id', (req, res) => {
+  console.log("GET /topic/"+req.params.id);
+
+  try {
+    docManager.init(__dirname, req, res)
+
+    const fileName = fileUtility.getFileName(req.params.id + '.docx');
+    const topicId = req.params.id;
+    if(!docManager.fileExists(fileName, topicId)) {
+      res.send(404);
+      return;
+    }
+
     const history = [];
     const prevUrl = [];
     const diff = [];
     const lang = docManager.getLang();
     const userid = req.query.userid ? req.query.userid : 'uid-1';
-    const firstname = req.query.firstname ? req.query.firstname : 'Jonn';
-    const lastname = req.query.lastname ? req.query.lastname : 'Smith';
+    const email = userEmail;
+    const firstName = email;
+    const lastName = '';
 
-    let fileName;
-    if (fileExt != null) {
-      fileName = docManager.createDemo((req.query.sample ? 'sample.' : 'new.') +
-        fileExt, userid, `${firstname} ${lastname}`);
-
-      const redirectPath = `${docManager.getProtocol()}://${docManager.req.get('host')}/editor?fileName=${encodeURIComponent(fileName)}${docManager.getCustomParams()}`;
-      res.redirect(redirectPath);
-      return;
-    }
-
-    const userAddress = docManager.curUserHostAddress();
-    fileName = fileUtility.getFileName(req.query.fileName);
     const key = docManager.getKey(fileName);
     const url = docManager.getFileUri(fileName);
     const mode = req.query.mode || 'edit'; // mode: view/edit
     const type = req.query.type || 'desktop'; // type: embedded/mobile/desktop
     const canEdit = configServer.get('editedDocs').indexOf(
-      fileUtility.getFileExtension(fileName)) !== -1;
+        fileUtility.getFileExtension(fileName)) !== -1;
 
     let countVersion = 1;
 
-    const historyPath = docManager.historyPath(fileName, userAddress);
+    const historyPath = docManager.historyPath(fileName, topicId);
     let changes;
 
     if (historyPath !== '') {
       countVersion = docManager.countVersion(historyPath) + 1;
-      let prevPath = `${docManager.getlocalFileUri(fileName, 1)}/prev${fileUtility.getFileExtension(fileName)}`;
+      let localFileUri = docManager.getlocalFileUri(fileName, 1);
+      let fileExt = fileUtility.getFileExtension(fileName);
+      let prevPath = localFileUri + '/prev' + fileExt;
       let diffPath = null;
-      for (let i = 1; i < countVersion; i + 1) {
-        const keyPath = docManager.keyPath(fileName, userAddress, i);
+      for (let i = 1; i < countVersion; i++) {
+        const keyPath = docManager.keyPath(fileName, topicId, i);
         const keyVersion = `${fileSystem.readFileSync(keyPath)}`;
         history.push(docManager.getHistory(fileName, changes, keyVersion, i));
 
@@ -464,7 +541,103 @@ app.get('/editor', (req, res) => {
         diff.push(diffPath);
         diffPath = `${docManager.getlocalFileUri(fileName, i)}/diff.zip`;
 
-        const changesFile = docManager.changesPath(fileName, userAddress, i);
+        const changesFile = docManager.changesPath(fileName, topicId, i);
+        changes = docManager.getChanges(changesFile);
+      }
+      prevUrl.push(prevPath);
+      diff.push(diffPath);
+    } else {
+      prevUrl.push(url);
+    }
+    history.push(docManager.getHistory(fileName, changes, key, countVersion));
+
+    const argss = {
+      apiUrl: siteUrl + configServer.get('apiUrl'),
+      file: {
+        name: fileName,
+        ext: fileUtility.getFileExtension(fileName, true),
+        uri: url,
+        version: countVersion,
+      },
+      editor: {
+        type,
+        documentType: fileUtility.getFileType(fileName),
+        key,
+        callbackUrl: docManager.getCallback(fileName),
+        isEdit: canEdit,
+        mode: canEdit && mode !== 'view' ? 'edit' : 'view',
+        canBackToFolder: false,
+        getServerUrl: docManager.getServerUrl(),
+        curUserHostAddress: docManager.curUserHostAddress(),
+        lang,
+        userid,
+        firstName,
+        lastName,
+        fileChoiceUrl,
+        plugins,
+      },
+      history,
+      setHistoryData: {
+        url: prevUrl,
+        urlDiff: diff,
+      },
+    };
+
+    // res.render('editor', argss);
+    res.status(200).send(argss);
+  } catch (ex) {
+    console.log(ex);
+    res.status(500);
+    res.render('error', {message: 'Server error'});
+  }
+});
+
+app.get('/editor', (req, res) => {
+  try {
+    docManager.init(__dirname, req, res);
+
+    const history = [];
+    const prevUrl = [];
+    const diff = [];
+    const lang = docManager.getLang();
+    const userid = req.query.userid ? req.query.userid : 'uid-1';
+    const email = req.query.email ? req.query.email : 'demouser@hipapp.de';
+    const firstName = email;
+    const lastName = '';
+    const fileName = fileUtility.getFileName(req.query.fileName);
+
+    const topicId = fileUtility.getFileName(fileName, true);
+    const key = docManager.getKey(fileName);
+    const url = docManager.getFileUri(fileName);
+    const mode = req.query.mode || 'edit'; // mode: view/edit
+    const type = req.query.type || 'desktop'; // type: embedded/mobile/desktop
+    const canEdit = configServer.get('editedDocs').indexOf(
+        fileUtility.getFileExtension(fileName)) !== -1;
+
+    let countVersion = 1;
+
+    const historyPath = docManager.historyPath(fileName, topicId);
+    let changes;
+
+
+    if (historyPath !== '') {
+      countVersion = docManager.countVersion(historyPath) + 1;
+      let localFileUri = docManager.getlocalFileUri(fileName, 1);
+      let fileExt = fileUtility.getFileExtension(fileName);
+      let prevPath = localFileUri + '/prev' + fileExt;
+      let diffPath = null;
+      for (let i = 1; i < countVersion; i + 1) {
+        const keyPath = docManager.keyPath(fileName, topicId, i);
+        const keyVersion = `${fileSystem.readFileSync(keyPath)}`;
+        history.push(docManager.getHistory(fileName, changes, keyVersion, i));
+
+        prevUrl.push(prevPath);
+        prevPath = `${docManager.getlocalFileUri(fileName, i)}/prev${fileUtility.getFileExtension(fileName)}`;
+
+        diff.push(diffPath);
+        diffPath = `${docManager.getlocalFileUri(fileName, i)}/diff.zip`;
+
+        const changesFile = docManager.changesPath(fileName, topicId, i);
         changes = docManager.getChanges(changesFile);
       }
       prevUrl.push(prevPath);
@@ -494,8 +667,8 @@ app.get('/editor', (req, res) => {
         curUserHostAddress: docManager.curUserHostAddress(),
         lang,
         userid,
-        firstname,
-        lastname,
+        firstName,
+        lastName,
         fileChoiceUrl,
         plugins,
       },
@@ -510,7 +683,7 @@ app.get('/editor', (req, res) => {
   } catch (ex) {
     console.log(ex);
     res.status(500);
-    res.render('error', { message: 'Server error' });
+    res.render('error', {message: 'Server error'});
   }
 });
 
