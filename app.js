@@ -48,7 +48,6 @@ const permissionService = require('./permissions');
 var token;
 var userEmail;
 
-
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 String.prototype.hashCode = function () {
@@ -71,10 +70,8 @@ String.prototype.format = function () {
 
 const app = express();
 
-
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
-
 
 app.use((req, res, next) => {
   if ('OPTIONS' == req.method) {
@@ -91,7 +88,6 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(favicon(`${__dirname}/public/images/favicon.ico`));
 
-
 /**
  * use auth middleware
  */
@@ -100,6 +96,8 @@ app.use((req, res, next) => {
     next(); // skip authorization if in development mode
   } else {
     console.log("Call: " + req.originalUrl);
+    // to access track, we need a key, which is delivered to the client per call.
+    // so we can skip auth for that url
     if (req.originalUrl.indexOf('track') !== -1) {
       console.log('skip auth');
       next();
@@ -142,6 +140,7 @@ app.use((req, res, next) => {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 
+// TODO still usable for administration? if not delete
 app.get('/', (req, res) => {
   try {
     docManager.init(__dirname, req, res);
@@ -161,6 +160,7 @@ app.get('/', (req, res) => {
   }
 });
 
+// TODO change to POST /topic/:id/upload
 app.post('/upload', (req, res) => {
   docManager.init(__dirname, req, res);
   docManager.storagePath(''); // mkdir if not exist
@@ -215,6 +215,7 @@ app.post('/upload', (req, res) => {
   });
 });
 
+// TODO change to a GET /topic/:id/convert
 app.get('/convert', (req, res) => {
   const fileName = fileUtility.getFileName(req.query.filename);
   const fileUri = docManager.getFileUri(fileName);
@@ -298,6 +299,7 @@ app.get('/convert', (req, res) => {
   }
 });
 
+// TODO change to a DELTE /topic/:id
 app.delete('/file', (req, res) => {
   try {
     docManager.init(__dirname, req, res);
@@ -334,8 +336,12 @@ app.delete('/file', (req, res) => {
   res.end();
 });
 
+/**
+ * POST /track
+ * tracks all changes made in the editor.
+ * Is called by the OnlyOffice Editor. No need to change.
+ */
 app.post('/track', (req, res) => {
-  console.log('POST ' + req.originalUrl);
   docManager.init(__dirname, req, res);
 
   const initialUserAddress = req.query.useraddress;
@@ -490,9 +496,12 @@ app.post('/topic', (req, res) => {
   }
 });
 
+/**
+ * GET /topic/:id
+ * returns a config for creating an editor on client side
+ * @param id the Id of the topic you want to edit
+ */
 app.get('/topic/:id', (req, res) => {
-  console.log("GET /topic/"+req.params.id);
-
   try {
     docManager.init(__dirname, req, res)
 
@@ -507,7 +516,7 @@ app.get('/topic/:id', (req, res) => {
     const prevUrl = [];
     const diff = [];
     const lang = docManager.getLang();
-    const userid = req.query.userid ? req.query.userid : 'uid-1';
+    const userid = userEmail;
     const email = userEmail;
     const firstName = email;
     const lastName = '';
