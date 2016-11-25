@@ -28,7 +28,7 @@
     "request": "^2.75.0",
     "serve-favicon": "~2.3.0",
     "sync-request": "~3.0.1",
-    "urllib": "~2.17.0",
+    "urllib": "~2.17.1",
     "xml2js": "~0.4.17"
   },
   "license": "MIT",
