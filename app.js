@@ -341,17 +341,16 @@ const topicExists = function topicExists(id) {
   return docManager.fileExists(fileName, id);
 };
 
-// TODO change to a DELTE /topic/:id
-app.delete('/file', (req, res) => {
+app.delete('/topic/:id', (req, res) => {
   try {
     docManager.init(__dirname, req, res);
 
-    const fileName = fileUtility.getFileName(req.query.filename);
+    const id = req.params.id;
+    const fileName = fileUtility.getFileName(`${id}.docx`);
+    const filePath = docManager.storagePath(fileName, id);
 
-    const filePath = docManager.storagePath(fileName);
-
-    if (!fileSystem.existsSync(filePath)) {
-      res.status(405).send('File does not exist on disk'); // 405 = method not allowed
+    if (!topicExists(id)) {
+      res.status(405).send('File does not exist on disk'); // 405 = method not allowed (on file)
     } else {
       fileSystem.unlinkSync(filePath);
 
