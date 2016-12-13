@@ -3,6 +3,7 @@
   "version": "4.1.0",
   "private": false,
   "scripts": {
+    "debug": "iron-node ./bin/www",
     "start": "node ./bin/www"
   },
   "description": "OnlineEditorsExampleNodeJS",
