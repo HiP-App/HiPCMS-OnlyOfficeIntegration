@@ -159,9 +159,9 @@ app.post("/upload", function (req, res) {
 
         if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
             fileSystem.unlinkSync(file.path);
-            res.writeHead(200, { "Content-Type": "text/plain" });
-            res.write("{ \"error\": \"File size is incorrect\"}");
-            res.end();
+            res.status(200)
+                .set({ "Content-Type": "text/plain" })
+                .json({ error: "File size is incorrect"});
             return;
         }
 
@@ -170,18 +170,20 @@ app.post("/upload", function (req, res) {
 
         if (exts.indexOf(curExt) == -1) {
             fileSystem.unlinkSync(file.path);
-            res.writeHead(200, { "Content-Type": "text/plain" });
-            res.write("{ \"error\": \"File type is not supported\"}");
+            res.status(200)
+                .set({ "Content-Type": "text/plain" })
+                .json({ error: "File type is not supported" });
             res.end();
             return;
         }
 
         fileSystem.rename(file.path, uploadDir + "/" + file.name, function (err) {
-            res.writeHead(200, { "Content-Type": "text/plain" });
+            res.status(200)
+                .set({ "Content-Type": "text/plain" });
             if (err) {
-                res.write("{ \"error\": \"" + err + "\"}");
+                res.json({ error: err });
             } else {
-                res.write("{ \"filename\": \"" + file.name + "\"}");
+                res.json({ "filename": file.name });
 
                 var userid = req.query.userid ? req.query.userid : "uid-1";
                 var firstname = req.query.firstname ? req.query.firstname : "Jonn";
@@ -190,7 +192,6 @@ app.post("/upload", function (req, res) {
                 docManager.saveFileData(file.name, userid, firstname + " " + lastname);
                 docManager.getFileData(file.name, docManager.curUserHostAddress());
             }
-            res.end();
         });
     });
 });
@@ -281,34 +282,38 @@ app.delete("/file", function (req, res) {
 
         var fileName = fileUtility.getFileName(req.query.filename);
 
-        var filePath = docManager.storagePath(fileName)
-        fileSystem.unlinkSync(filePath);
+        var filePath = docManager.storagePath(fileName);
 
-        var userAddress = docManager.curUserHostAddress();
-        var historyPath = docManager.historyPath(fileName, userAddress, true);
+        if (!fileSystem.existsSync(filePath)) {
+            res.status(405).send("File does not exist on disk"); // 405 = method not allowed
+        } else {
+            fileSystem.unlinkSync(filePath);
 
-        var deleteFolderRecursive = function (path) {
-            if (fileSystem.existsSync(path)) {
-                var files = fileSystem.readdirSync(path);
-                files.forEach(function (file, index) {
-                    var curPath = path + "/" + file;
-                    if (fileSystem.lstatSync(curPath).isDirectory()) {
-                        deleteFolderRecursive(curPath);
-                    } else {
-                        fileSystem.unlinkSync(curPath);
-                    }
-                });
-                fileSystem.rmdirSync(path);
-            }
-        };
-        deleteFolderRecursive(historyPath);
+            var userAddress = docManager.curUserHostAddress();
+            var historyPath = docManager.historyPath(fileName, userAddress, true);
 
-        res.write("{\"success\":true}");
+            var deleteFolderRecursive = function (path) {
+                if (fileSystem.existsSync(path)) {
+                    var files = fileSystem.readdirSync(path);
+                    files.forEach(function (file, index) {
+                        var curPath = path + "/" + file;
+                        if (fileSystem.lstatSync(curPath).isDirectory()) {
+                            deleteFolderRecursive(curPath);
+                        } else {
+                            fileSystem.unlinkSync(curPath);
+                        }
+                    });
+                    fileSystem.rmdirSync(path);
+                }
+            };
+            deleteFolderRecursive(historyPath);
+
+            res.sendStatus(200);
+        }
     } catch (ex) {
         console.log(ex);
-        res.write("Server error");
+        res.sendStatus(500);
     }
-    res.end();
 });
 
 app.post("/track", function (req, res) {
