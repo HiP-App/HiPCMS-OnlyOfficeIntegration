@@ -107,7 +107,6 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'development') {
     next(); // skip authorization if in development mode
   } else {
-    logger.info(`Call: ${req.originalUrl}`);
     // to access track, we need a key, which is delivered to the client per call.
     // so we can skip auth for that url
     if (req.originalUrl.indexOf('track') !== -1) {
@@ -130,7 +129,7 @@ app.use((req, res, next) => {
 
       request({
         url,
-        json: true,
+        json: true
       }, (error, response, body) => {
         if (!error && response.statusCode === 200) {
           const jwk = jwksUtils.findJWK(kid, body);
@@ -162,7 +161,7 @@ app.get('/', (req, res) => {
       convertExts: configServer.get('convertedDocs').join(','),
       editedExts: configServer.get('editedDocs').join(','),
       storedFiles: docManager.getStoredFiles(),
-      params: docManager.getCustomParams(),
+      params: docManager.getCustomParams()
     });
   } catch (ex) {
     logger.error(ex);
@@ -336,6 +335,12 @@ const deleteFolderRecursive = function deleteFolderRecursive(filePath) {
   }
 };
 
+const topicExists = function topicExists(id) {
+  const fileName = fileUtility.getFileName(`${id}.docx`);
+
+  return docManager.fileExists(fileName, id);
+};
+
 // TODO change to a DELTE /topic/:id
 app.delete('/file', (req, res) => {
   try {
@@ -377,7 +382,7 @@ app.post('/track', (req, res) => {
 
   const processTrack = function processTrack(
     response, body, fileName, userAddress) {
-    const processSave = function (
+    const processSave = function processSave(
       body, fileName, userAddress, newVersion) {
       let downloadUri = body.url;
       const curExt = fileUtility.getFileExtension(fileName);
@@ -486,10 +491,7 @@ app.post('/track', (req, res) => {
 app.get('/topic/:id/exists', (req, res) => {
   docManager.init(__dirname, req, res);
 
-  const fileName = fileUtility.getFileName(`${req.params.id}.docx`);
-  const topicId = req.params.id;
-
-  if (docManager.fileExists(fileName, topicId)) {
+  if (topicExists(req.params.id)) {
     res.sendStatus(200);
   } else {
     res.sendStatus(404);
@@ -598,7 +600,7 @@ app.get('/topic/:id', (req, res) => {
         name: fileName,
         ext: fileUtility.getFileExtension(fileName, true),
         uri: url,
-        version: countVersion,
+        version: countVersion
       },
       editor: {
         type,
@@ -615,13 +617,13 @@ app.get('/topic/:id', (req, res) => {
         firstName,
         lastName,
         fileChoiceUrl,
-        plugins,
+        plugins
       },
       history,
       setHistoryData: {
         url: prevUrl,
-        urlDiff: diff,
-      },
+        urlDiff: diff
+      }
     };
 
     // res.render('editor', argss);
@@ -694,7 +696,7 @@ app.get('/editor', (req, res) => {
         name: fileName,
         ext: fileUtility.getFileExtension(fileName, true),
         uri: url,
-        version: countVersion,
+        version: countVersion
       },
       editor: {
         type,
@@ -711,13 +713,13 @@ app.get('/editor', (req, res) => {
         firstName,
         lastName,
         fileChoiceUrl,
-        plugins,
+        plugins
       },
       history,
       setHistoryData: {
         url: prevUrl,
-        urlDiff: diff,
-      },
+        urlDiff: diff
+      }
     };
 
     res.render('editor', argss);
@@ -737,7 +739,7 @@ app.use((req, res, next) => {
 app.use((err, req, res) => {
   res.status(err.status || 500);
   res.render('error', {
-    message: err.message,
+    message: err.message
   });
 });
 
