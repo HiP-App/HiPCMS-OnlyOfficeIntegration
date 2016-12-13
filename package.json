@@ -24,7 +24,7 @@
     "jsonwebtoken": "^7.2.1",
     "jwks-utils": "^1.0.5",
     "jws-jwk": "^0.1.4",
-    "log4js": "^0.6.38",
+    "log4js": "^1.0.0",
     "request": "^2.75.0",
     "serve-favicon": "~2.3.0",
     "sync-request": "~3.0.1",
