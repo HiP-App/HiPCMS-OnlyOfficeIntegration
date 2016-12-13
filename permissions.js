@@ -1,6 +1,7 @@
 
 const request = require('request');
 const config = require('config');
+
 const apiUrl = config.get('server').get('cmsApiUrl');
 
 function callback(error, response, process) {
@@ -17,9 +18,10 @@ function callback(error, response, process) {
 
 var permissions = {};
 
-permissions.canEditTopicDocument = function(token, topicId, process) {
-  return request.get(apiUrl + 'Api/Permissions/Topics/' + topicId + '/Permission/IsAssociatedTo',
-    function(error, response, body) {
+permissions.canEditTopicDocument = function (token, topicId, process) {
+  return request.get(
+    `${apiUrl}Api/Permissions/Topics/${topicId}/Permission/IsAssociatedTo`,
+    function (error, response) {
       callback(error, response, process);
     })
     .auth(null, null, true, token);
