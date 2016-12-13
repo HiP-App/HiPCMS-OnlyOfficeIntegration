@@ -38,6 +38,7 @@ const jwt = require('jsonwebtoken');
 const jwksUtils = require('jwks-utils');
 const jws = require('jws-jwk');
 const request = require('request');
+const logger = require('./logger');
 
 const configServer = config.get('server');
 const fileChoiceUrl = configServer.has('fileChoiceUrl') ?
@@ -102,16 +103,16 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'development') {
     next(); // skip authorization if in development mode
   } else {
-    console.log(`Call: ${req.originalUrl}`);
+    logger.info(`Call: ${req.originalUrl}`);
     // to access track, we need a key, which is delivered to the client per call.
     // so we can skip auth for that url
     if (req.originalUrl.indexOf('track') !== -1) {
-      console.log('skip auth');
+      logger.info('skip auth');
       next();
       return;
     }
     try {
-      console.log('auth');
+      logger.info('auth');
       const authToken = req.get('Authorization');
       const at = authToken.slice('Bearer '.length, authToken.length);
       const decodedToken = jwt.decode(at, { complete: true });
@@ -131,7 +132,7 @@ app.use((req, res, next) => {
           const jwk = jwksUtils.findJWK(kid, body);
 
           if (jws.verify(at, jwk)) {
-            console.log('client authenticated');
+            logger.info('client authenticated');
             next();
           } else {
             throw new Error();
@@ -151,7 +152,6 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.get('/', (req, res) => {
   try {
     docManager.init(__dirname, req, res);
-    console.log('test');
 
     res.render('index', {
       preloaderUrl: siteUrl + configServer.get('preloaderUrl'),
@@ -161,7 +161,7 @@ app.get('/', (req, res) => {
       params: docManager.getCustomParams(),
     });
   } catch (ex) {
-    console.log(ex);
+    logger.error(ex);
     res.status(500);
     res.render('error', { message: 'Server error' });
   }
@@ -298,7 +298,7 @@ app.get('/convert', (req, res) => {
 
       writeResult(correctName, null, null);
     } catch (e) {
-      console.log(e);
+      logger.error(e);
       writeResult(null, null, 'Server error');
     }
   };
@@ -312,10 +312,25 @@ app.get('/convert', (req, res) => {
       writeResult(fileName, null, null);
     }
   } catch (ex) {
-    console.log(ex);
+    logger.error(ex);
     writeResult(null, null, 'Server error');
   }
 });
+
+const deleteFolderRecursive = function deleteFolderRecursive(filePath) {
+  if (fileSystem.existsSync(filePath)) {
+    const files = fileSystem.readdirSync(filePath);
+    files.forEach((file) => {
+      const curPath = `${filePath}/${file}`;
+      if (fileSystem.lstatSync(curPath).isDirectory()) {
+        deleteFolderRecursive(curPath);
+      } else {
+        fileSystem.unlinkSync(curPath);
+      }
+    });
+    fileSystem.rmdirSync(path);
+  }
+};
 
 // TODO change to a DELTE /topic/:id
 app.delete('/file', (req, res) => {
@@ -325,33 +340,23 @@ app.delete('/file', (req, res) => {
     const fileName = fileUtility.getFileName(req.query.filename);
 
     const filePath = docManager.storagePath(fileName);
-    fileSystem.unlinkSync(filePath);
 
-    const userAddress = docManager.curUserHostAddress();
-    const historyPath = docManager.historyPath(fileName, userAddress, true);
+    if (!fileSystem.existsSync(filePath)) {
+      res.status(405).send('File does not exist on disk'); // 405 = method not allowed
+    } else {
+      fileSystem.unlinkSync(filePath);
 
-    const deleteFolderRecursive = function deleteFolderRecursive(pathToDelete) {
-      if (fileSystem.existsSync(pathToDelete)) {
-        const files = fileSystem.readdirSync(pathToDelete);
-        files.forEach((file) => {
-          const curPath = `${pathToDelete}/${file}`;
-          if (fileSystem.lstatSync(curPath).isDirectory()) {
-            deleteFolderRecursive(curPath);
-          } else {
-            fileSystem.unlinkSync(curPath);
-          }
-        });
-        fileSystem.rmdirSync(pathToDelete);
-      }
-    };
-    deleteFolderRecursive(historyPath);
+      const userAddress = docManager.curUserHostAddress();
+      const historyPath = docManager.historyPath(fileName, userAddress, true);
 
-    res.write('{"success":true}');
+      deleteFolderRecursive(historyPath);
+
+      res.sendStatus(200);
+    }
   } catch (ex) {
-    console.log(ex);
-    res.write('Server error');
+    logger.error(ex);
+    res.sendStatus(500);
   }
-  res.end();
 });
 
 /**
@@ -382,7 +387,7 @@ app.post('/track', (req, res) => {
           downloadUri = documentService.getConvertedUri(
             downloadUri, downloadExt, curExt, key);
         } catch (ex) {
-          console.log(ex);
+          logger.error(ex);
           fileName = docManager.getCorrectName(
             fileUtility.getFileName(fileName, true) + downloadExt, userAddress);
         }
@@ -430,7 +435,7 @@ app.post('/track', (req, res) => {
         const file = syncRequest('GET', downloadUri);
         fileSystem.writeFileSync(path, file.getBody());
       } catch (ex) {
-        console.log(ex);
+        logger.error(ex);
       }
     };
 
@@ -442,7 +447,7 @@ app.post('/track', (req, res) => {
           try {
             documentService.commandRequest('forcesave', key);
           } catch (ex) {
-            console.log(ex);
+            logger.error(ex);
           }
         }
       }
@@ -618,7 +623,7 @@ app.get('/topic/:id', (req, res) => {
     // res.render('editor', argss);
     res.status(200).send(argss);
   } catch (ex) {
-    console.log(ex);
+    logger.error(ex);
     res.status(500);
     res.render('error', { message: 'Server error' });
   }
@@ -713,7 +718,7 @@ app.get('/editor', (req, res) => {
 
     res.render('editor', argss);
   } catch (ex) {
-    console.log(ex);
+    logger.error(ex);
     res.status(500);
     res.render('error', { message: 'Server error' });
   }
