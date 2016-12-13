@@ -38,6 +38,8 @@ const jwt = require('jsonwebtoken');
 const jwksUtils = require('jwks-utils');
 const jws = require('jws-jwk');
 const request = require('request');
+const morgan = require('morgan');
+
 const logger = require('./logger');
 
 const configServer = config.get('server');
@@ -95,6 +97,8 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(favicon(`${__dirname}/public/images/favicon.ico`));
+
+app.use(morgan('combined'));
 
 /**
  * use auth middleware
