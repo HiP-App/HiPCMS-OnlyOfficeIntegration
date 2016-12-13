@@ -1,18 +1,14 @@
 {
-  "name": "OnlineEditorsExampleNodeJS",
-  "version": "4.1.0",
+  "name": "HiPCMS-OnlyOfficeIntegration",
+  "version": "1.0.0",
   "private": false,
   "scripts": {
     "debug": "iron-node ./bin/www",
     "start": "node ./bin/www"
   },
-  "description": "OnlineEditorsExampleNodeJS",
+  "description": "HiPCMS-OnlyOfficeIntegration",
   "author": {
-    "name": "ONLYOFFICE",
-    "email": ""
-  },
-  "bugs": {
-    "url": "https://github.com/ONLYOFFICE/document-server-integration/issues"
+    "name": "HiP Team"
   },
   "dependencies": {
     "body-parser": "~1.15.2",
@@ -35,6 +31,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ONLYOFFICE/document-server-integration.git"
+    "url": "https://github.com/HiP-App/HiPCMS-OnlyOfficeIntegration"
   }
 }
