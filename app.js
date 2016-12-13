@@ -40,28 +40,32 @@ const jws = require('jws-jwk');
 const request = require('request');
 
 const configServer = config.get('server');
-const fileChoiceUrl = configServer.has('fileChoiceUrl') ? configServer.get('fileChoiceUrl') : '';
+const fileChoiceUrl = configServer.has('fileChoiceUrl') ?
+    configServer.get('fileChoiceUrl') : '';
 const siteUrl = configServer.get('siteUrl');
 const plugins = config.get('plugins');
 const permissionService = require('./permissions');
 
-var token;
-var userEmail;
+let token;
+let userEmail;
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-String.prototype.hashCode = function () {
-  for (var ret = 0, i = 0, len = this.length; i < len; i++) {
-    ret = (31 * ret + this.charCodeAt(i)) << 0;
+String.prototype.hashCode = function hashCode() {
+  let i;
+  let len;
+  let ret;
+  for (ret = 0, i = 0, len = this.length; i < len; i + 1) {
+    ret = ((31 * ret) + this.charCodeAt(i)) << 0;
   }
   return ret;
 };
-String.prototype.format = function () {
+String.prototype.format = function format() {
   let text = this.toString();
 
   if (!arguments.length) return text;
 
-  for (let i = 0; i < arguments.length; i++) {
+  for (let i = 0; i < arguments.length; i + 1) {
     text = text.replace(new RegExp(`\\{${i}\\}`, 'gi'), arguments[i]);
   }
 
@@ -74,10 +78,13 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
 app.use((req, res, next) => {
-  if ('OPTIONS' == req.method) {
+  if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, access-control-allow-origin');
+    res.setHeader('Access-Control-Allow-Methods',
+      'GET,PUT,POST,DELETE,PATCH,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers',
+      'Content-Type, Authorization, Content-Length, X-Requested-With, ' +
+        'access-control-allow-origin');
     res.sendStatus(200);
   } else {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -95,7 +102,7 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'development') {
     next(); // skip authorization if in development mode
   } else {
-    console.log("Call: " + req.originalUrl);
+    console.log(`Call: ${req.originalUrl}`);
     // to access track, we need a key, which is delivered to the client per call.
     // so we can skip auth for that url
     if (req.originalUrl.indexOf('track') !== -1) {
@@ -106,8 +113,8 @@ app.use((req, res, next) => {
     try {
       console.log('auth');
       const authToken = req.get('Authorization');
-      const at = authToken.slice("Bearer ".length, authToken.length);
-      const decodedToken = jwt.decode(at, {complete: true});
+      const at = authToken.slice('Bearer '.length, authToken.length);
+      const decodedToken = jwt.decode(at, { complete: true });
       const kid = decodedToken.header.kid;
       const issuer = decodedToken.payload.iss;
 
@@ -124,7 +131,7 @@ app.use((req, res, next) => {
           const jwk = jwksUtils.findJWK(kid, body);
 
           if (jws.verify(at, jwk)) {
-            console.log('client authentificated');
+            console.log('client authenticated');
             next();
           } else {
             throw new Error();
@@ -138,7 +145,7 @@ app.use((req, res, next) => {
 });
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.urlencoded({ extended: false }));
 
 // TODO still usable for administration? if not delete
 app.get('/', (req, res) => {
@@ -156,7 +163,7 @@ app.get('/', (req, res) => {
   } catch (ex) {
     console.log(ex);
     res.status(500);
-    res.render('error', {message: 'Server error'});
+    res.render('error', { message: 'Server error' });
   }
 });
 
@@ -179,25 +186,29 @@ app.post('/upload', (req, res) => {
 
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
       fileSystem.unlinkSync(file.path);
-      res.writeHead(200, {'Content-Type': 'text/plain'});
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File size is incorrect"}');
       res.end();
       return;
     }
 
-    const exts = [].concat(configServer.get('viewedDocs'), configServer.get('editedDocs'), configServer.get('convertedDocs'));
+    const exts = [].concat(
+      configServer.get('viewedDocs'),
+      configServer.get('editedDocs'),
+      configServer.get('convertedDocs')
+    );
     const curExt = fileUtility.getFileExtension(file.name);
 
     if (exts.indexOf(curExt) === -1) {
       fileSystem.unlinkSync(file.path);
-      res.writeHead(200, {'Content-Type': 'text/plain'});
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File type is not supported"}');
       res.end();
       return;
     }
 
     fileSystem.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
-      res.writeHead(200, {'Content-Type': 'text/plain'});
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
       if (err2) {
         res.write(`{ "error": "${err2}"}`);
       } else {
@@ -224,7 +235,7 @@ app.get('/convert', (req, res) => {
   const internalFileExt = docManager.getInternalExtension(fileType);
   const response = res;
 
-  const writeResult = function (filename, step, error) {
+  const writeResult = function writeResult(filename, step, error) {
     const result = {};
 
     if (filename !== null) {
@@ -243,9 +254,10 @@ app.get('/convert', (req, res) => {
     response.end();
   };
 
-  const callback = function (err, data) {
+  const callback = function callback(err, data) {
     if (err) {
-      if (err.name === 'ConnectionTimeoutError' || err.name === 'ResponseTimeoutError') {
+      if (err.name === 'ConnectionTimeoutError' ||
+        err.name === 'ResponseTimeoutError') {
         writeResult(fileName, 0, null);
       } else {
         writeResult(null, null, JSON.stringify(err));
@@ -267,17 +279,22 @@ app.get('/convert', (req, res) => {
         fileUtility.getFileName(fileName, true) + internalFileExt);
 
       const file = syncRequest('GET', newFileUri);
-      fileSystem.writeFileSync(docManager.storagePath(correctName), file.getBody());
+      fileSystem.writeFileSync(
+          docManager.storagePath(correctName), file.getBody());
 
       fileSystem.unlinkSync(docManager.storagePath(fileName));
 
       const userAddress = docManager.curUserHostAddress();
       const historyPath = docManager.historyPath(fileName, userAddress, true);
-      const correctHistoryPath = docManager.historyPath(correctName, userAddress, true);
+      const correctHistoryPath = docManager.historyPath(
+          correctName, userAddress, true);
 
       fileSystem.renameSync(historyPath, correctHistoryPath);
 
-      fileSystem.renameSync(path.join(correctHistoryPath, `${fileName}.txt`), path.join(correctHistoryPath, `${correctName}.txt`));
+      fileSystem.renameSync(
+          path.join(correctHistoryPath, `${fileName}.txt`),
+          path.join(correctHistoryPath, `${correctName}.txt`)
+      );
 
       writeResult(correctName, null, null);
     } catch (e) {
@@ -289,7 +306,8 @@ app.get('/convert', (req, res) => {
   try {
     if (configServer.get('convertedDocs').indexOf(fileExt) !== -1) {
       const key = documentService.generateRevisionId(fileUri);
-      documentService.getConvertedUriAsync(fileUri, fileExt, internalFileExt, key, callback);
+      documentService.getConvertedUriAsync(
+        fileUri, fileExt, internalFileExt, key, callback);
     } else {
       writeResult(fileName, null, null);
     }
@@ -312,7 +330,7 @@ app.delete('/file', (req, res) => {
     const userAddress = docManager.curUserHostAddress();
     const historyPath = docManager.historyPath(fileName, userAddress, true);
 
-    const deleteFolderRecursive = function (pathToDelete) {
+    const deleteFolderRecursive = function deleteFolderRecursive(pathToDelete) {
       if (fileSystem.existsSync(pathToDelete)) {
         const files = fileSystem.readdirSync(pathToDelete);
         files.forEach((file) => {
@@ -348,14 +366,16 @@ app.post('/track', (req, res) => {
   const initialFileName = fileUtility.getFileName(req.query.filename);
   let version = 0;
 
-  const processTrack = function (response, body, fileName, userAddress) {
-    const processSave = function (body, fileName, userAddress, newVersion) {
+  const processTrack = function processTrack(
+    response, body, fileName, userAddress) {
+    const processSave = function (
+      body, fileName, userAddress, newVersion) {
       let downloadUri = body.url;
       const curExt = fileUtility.getFileExtension(fileName);
       const downloadExt = fileUtility.getFileExtension(downloadUri);
       const topicId = fileUtility.getFileName(fileName, true);
 
-      if (downloadExt != curExt) {
+      if (downloadExt !== curExt) {
         const key = documentService.generateRevisionId(downloadUri);
 
         try {
@@ -436,7 +456,7 @@ app.post('/track', (req, res) => {
     response.end();
   };
 
-  const readbody = function (request, response, fileName, userAddress) {
+  const readbody = function readbody(request, response, fileName, userAddress) {
     let content = '';
     request.on('data', (data) => {
       content += data;
@@ -454,13 +474,13 @@ app.post('/track', (req, res) => {
   }
 });
 
-app.get('/topic/:id/exists', (req,res) => {
+app.get('/topic/:id/exists', (req, res) => {
   docManager.init(__dirname, req, res);
 
-  const fileName = fileUtility.getFileName(req.params.id + '.docx');
+  const fileName = fileUtility.getFileName(`${req.params.id}.docx`);
   const topicId = req.params.id;
 
-  if(docManager.fileExists(fileName, topicId)) {
+  if (docManager.fileExists(fileName, topicId)) {
     res.sendStatus(200);
   } else {
     res.sendStatus(404);
@@ -476,14 +496,17 @@ app.post('/topic', (req, res) => {
 
   const topicId = req.body.topicId ? req.body.topicId : -1;
 
-  if (topicId == -1) {
-    res.status(400, "No Topic id given");
-    res.render('error', {message: 'No Topic id given\n' + JSON.stringify(req.body) + JSON.stringify(req.query)});
+  if (topicId === -1) {
+    res.status(400, 'No Topic id given');
+    res.render('error',
+      { message: `No Topic id given\n${JSON.stringify(req.body)}${JSON.stringify(req.query)}` }
+    );
   } else {
     // user has permission to edit a topic?
-    permissionService.canEditTopicDocument(token, topicId, function (allowed) {
+    permissionService.canEditTopicDocument(token, topicId, (allowed) => {
       if (allowed) {
-        let success = docManager.createTopicDocument(topicId + '.docx', topicId, userEmail);
+        const success = docManager.createTopicDocument(
+          `${topicId}.docx`, topicId, userEmail);
         if (success) {
           res.sendStatus(200);
         } else {
@@ -503,11 +526,11 @@ app.post('/topic', (req, res) => {
  */
 app.get('/topic/:id', (req, res) => {
   try {
-    docManager.init(__dirname, req, res)
+    docManager.init(__dirname, req, res);
 
-    const fileName = fileUtility.getFileName(req.params.id + '.docx');
+    const fileName = fileUtility.getFileName(`${req.params.id}.docx`);
     const topicId = req.params.id;
-    if(!docManager.fileExists(fileName, topicId)) {
+    if (!docManager.fileExists(fileName, topicId)) {
       res.send(404);
       return;
     }
@@ -535,11 +558,11 @@ app.get('/topic/:id', (req, res) => {
 
     if (historyPath !== '') {
       countVersion = docManager.countVersion(historyPath) + 1;
-      let localFileUri = docManager.getlocalFileUri(fileName, 1);
-      let fileExt = fileUtility.getFileExtension(fileName);
-      let prevPath = localFileUri + '/prev' + fileExt;
+      const localFileUri = docManager.getlocalFileUri(fileName, 1);
+      const fileExt = fileUtility.getFileExtension(fileName);
+      let prevPath = `${localFileUri}/prev${fileExt}`;
       let diffPath = null;
-      for (let i = 1; i < countVersion; i++) {
+      for (let i = 1; i < countVersion; i + 1) {
         const keyPath = docManager.keyPath(fileName, topicId, i);
         const keyVersion = `${fileSystem.readFileSync(keyPath)}`;
         history.push(docManager.getHistory(fileName, changes, keyVersion, i));
@@ -597,7 +620,7 @@ app.get('/topic/:id', (req, res) => {
   } catch (ex) {
     console.log(ex);
     res.status(500);
-    res.render('error', {message: 'Server error'});
+    res.render('error', { message: 'Server error' });
   }
 });
 
@@ -631,9 +654,9 @@ app.get('/editor', (req, res) => {
 
     if (historyPath !== '') {
       countVersion = docManager.countVersion(historyPath) + 1;
-      let localFileUri = docManager.getlocalFileUri(fileName, 1);
-      let fileExt = fileUtility.getFileExtension(fileName);
-      let prevPath = localFileUri + '/prev' + fileExt;
+      const localFileUri = docManager.getlocalFileUri(fileName, 1);
+      const fileExt = fileUtility.getFileExtension(fileName);
+      let prevPath = `${localFileUri}/prev${fileExt}`;
       let diffPath = null;
       for (let i = 1; i < countVersion; i + 1) {
         const keyPath = docManager.keyPath(fileName, topicId, i);
@@ -692,7 +715,7 @@ app.get('/editor', (req, res) => {
   } catch (ex) {
     console.log(ex);
     res.status(500);
-    res.render('error', {message: 'Server error'});
+    res.render('error', { message: 'Server error' });
   }
 });
 

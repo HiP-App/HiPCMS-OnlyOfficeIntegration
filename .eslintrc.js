@@ -9,6 +9,9 @@ module.exports = {
   "rules": {
     "indent": ["error", 2],
     "no-prototype-builtins": 0,
-    "max-len": ["error", {"ignoreComments": true}]
+    "max-len": ["error", {
+      "ignoreComments": true,
+      "ignoreTemplateLiterals": true
+    }]
   }
 };
