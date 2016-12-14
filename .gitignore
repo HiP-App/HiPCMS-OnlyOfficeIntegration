@@ -1,8 +1,10 @@
 
 npm-debug.log*
 build/Release
+public/files/*
 config/default.json
 node_modules
 .idea
 .npm
 .node_repl_history
+.tern-project

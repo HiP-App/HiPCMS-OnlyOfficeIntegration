@@ -1,6 +1,5 @@
-﻿#!/usr/bin/env node
-var debug = require("debug")("OnlineEditorsExampleNodeJS");
-var app = require("../app");
+﻿var debug = console.log;
+var app = require('../app');
 var config = require('config');
 
 app.set("port", process.env.PORT || config.get('server.port') || 3000);
