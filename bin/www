@@ -1,5 +1,5 @@
 ﻿var debug = console.log;
-var app = require('../app-compiled');
+var app = require('../app');
 var config = require('config');
 
 app.set("port", process.env.PORT || config.get('server.port') || 3000);
