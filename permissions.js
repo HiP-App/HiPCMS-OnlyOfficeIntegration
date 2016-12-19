@@ -6,15 +6,11 @@ const apiUrl = config.get('server').get('cmsApiUrl');
 
 function createResponseHandler(process) {
   return function responseHandler(error, response) {
-    if (!error && response.statusCode === 200) {
-      process(true);
+    if (error) {
+      process(error);
       return;
     }
-    if (!error && response.statusCode === 401) {
-      process(false);
-      return;
-    }
-    process(error);
+    process(response.statusCode === 200);
   };
 }
 
