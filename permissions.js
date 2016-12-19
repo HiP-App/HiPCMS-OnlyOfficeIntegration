@@ -21,10 +21,15 @@ var permissions = {};
 permissions.canEditTopicDocument = function (token, topicId, process) {
   return request.get(
     `${apiUrl}Api/Permissions/Topics/${topicId}/Permission/IsAssociatedTo`,
-    function (error, response) {
-      callback(error, response, process);
-    })
-    .auth(null, null, true, token);
+    (error, response) => callback(error, response, process)
+  ).auth(null, null, true, token);
+};
+
+permissions.isAllowedToEdit = function (token, topicId, process) {
+  return request.get(
+    `${apiUrl}Api/Permissions/Topics/${topicId}/Permission/IsAllowedToEdit`,
+    (error, response) => callback(error, response, process)
+  ).auth(null, null, true, token);
 };
 
 module.exports = permissions;
