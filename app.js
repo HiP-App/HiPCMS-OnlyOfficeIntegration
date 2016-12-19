@@ -337,15 +337,14 @@ const deleteFolderRecursive = function deleteFolderRecursive(filePath) {
 
 const topicExists = function topicExists(id) {
   const fileName = fileUtility.getFileName(`${id}.docx`);
-
   return docManager.fileExists(fileName, id);
 };
 
-app.delete('/topic/:id', (req, res) => {
+const deleteTopic = (req, res) => {
+  const id = req.params.id;
   try {
     docManager.init(__dirname, req, res);
 
-    const id = req.params.id;
     const fileName = fileUtility.getFileName(`${id}.docx`);
     const filePath = docManager.storagePath(fileName, id);
 
@@ -365,6 +364,17 @@ app.delete('/topic/:id', (req, res) => {
     logger.error(ex);
     res.sendStatus(500);
   }
+};
+
+app.delete('/topic/:id', (req, res) => {
+  const id = req.params.id;
+  permissionService.isAllowedToEdit(token, id, (success) => {
+    if (success) {
+      deleteTopic(req, res);
+    } else {
+      res.sendStatus(403);
+    }
+  });
 });
 
 /**
