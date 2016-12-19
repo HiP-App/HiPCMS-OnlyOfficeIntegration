@@ -4,31 +4,33 @@ const config = require('config');
 
 const apiUrl = config.get('server').get('cmsApiUrl');
 
-function callback(error, response, process) {
-  if (!error && response.statusCode == 200) {
-    process(true);
-    return;
-  }
-  if (!error && response.statusCode == 401) {
-    process(false);
-    return;
-  }
-  process(error);
+function createResponseHandler(process) {
+  return function responseHandler(error, response) {
+    if (!error && response.statusCode === 200) {
+      process(true);
+      return;
+    }
+    if (!error && response.statusCode === 401) {
+      process(false);
+      return;
+    }
+    process(error);
+  };
 }
 
-var permissions = {};
+const permissions = {};
 
 permissions.canEditTopicDocument = function (token, topicId, process) {
   return request.get(
     `${apiUrl}Api/Permissions/Topics/${topicId}/Permission/IsAssociatedTo`,
-    (error, response) => callback(error, response, process)
+    createResponseHandler(process)
   ).auth(null, null, true, token);
 };
 
 permissions.isAllowedToEdit = function (token, topicId, process) {
   return request.get(
     `${apiUrl}Api/Permissions/Topics/${topicId}/Permission/IsAllowedToEdit`,
-    (error, response) => callback(error, response, process)
+    createResponseHandler(process)
   ).auth(null, null, true, token);
 };
 
