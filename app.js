@@ -58,7 +58,7 @@ String.prototype.hashCode = function hashCode() {
   let i;
   let len;
   let ret;
-  for (ret = 0, i = 0, len = this.length; i < len; i + 1) {
+  for (ret = 0, i = 0, len = this.length; i < len; i++) {
     ret = ((31 * ret) + this.charCodeAt(i)) << 0;
   }
   return ret;
@@ -83,8 +83,7 @@ app.set('view engine', 'ejs');
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods',
-      'GET,PUT,POST,DELETE,PATCH,OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers',
       'Content-Type, Authorization, Content-Length, X-Requested-With, ' +
         'access-control-allow-origin');
@@ -582,7 +581,7 @@ app.get('/topic/:id', (req, res) => {
       const fileExt = fileUtility.getFileExtension(fileName);
       let prevPath = `${localFileUri}/prev${fileExt}`;
       let diffPath = null;
-      for (let i = 1; i < countVersion; i + 1) {
+      for (let i = 1; i < countVersion; i++) {
         const keyPath = docManager.keyPath(fileName, topicId, i);
         const keyVersion = `${fileSystem.readFileSync(keyPath)}`;
         history.push(docManager.getHistory(fileName, changes, keyVersion, i));
@@ -637,101 +636,6 @@ app.get('/topic/:id', (req, res) => {
 
     // res.render('editor', argss);
     res.status(200).send(argss);
-  } catch (ex) {
-    logger.error(ex);
-    res.status(500);
-    res.render('error', { message: 'Server error' });
-  }
-});
-
-app.get('/editor', (req, res) => {
-  try {
-    docManager.init(__dirname, req, res);
-
-    const history = [];
-    const prevUrl = [];
-    const diff = [];
-    const lang = docManager.getLang();
-    const userid = req.query.userid ? req.query.userid : 'uid-1';
-    const email = req.query.email ? req.query.email : 'demouser@hipapp.de';
-    const firstName = email;
-    const lastName = '';
-    const fileName = fileUtility.getFileName(req.query.fileName);
-
-    const topicId = fileUtility.getFileName(fileName, true);
-    const key = docManager.getKey(fileName);
-    const url = docManager.getFileUri(fileName);
-    const mode = req.query.mode || 'edit'; // mode: view/edit
-    const type = req.query.type || 'desktop'; // type: embedded/mobile/desktop
-    const canEdit = configServer.get('editedDocs').indexOf(
-        fileUtility.getFileExtension(fileName)) !== -1;
-
-    let countVersion = 1;
-
-    const historyPath = docManager.historyPath(fileName, topicId);
-    let changes;
-
-
-    if (historyPath !== '') {
-      countVersion = docManager.countVersion(historyPath) + 1;
-      const localFileUri = docManager.getlocalFileUri(fileName, 1);
-      const fileExt = fileUtility.getFileExtension(fileName);
-      let prevPath = `${localFileUri}/prev${fileExt}`;
-      let diffPath = null;
-      for (let i = 1; i < countVersion; i + 1) {
-        const keyPath = docManager.keyPath(fileName, topicId, i);
-        const keyVersion = `${fileSystem.readFileSync(keyPath)}`;
-        history.push(docManager.getHistory(fileName, changes, keyVersion, i));
-
-        prevUrl.push(prevPath);
-        prevPath = `${docManager.getlocalFileUri(fileName, i)}/prev${fileUtility.getFileExtension(fileName)}`;
-
-        diff.push(diffPath);
-        diffPath = `${docManager.getlocalFileUri(fileName, i)}/diff.zip`;
-
-        const changesFile = docManager.changesPath(fileName, topicId, i);
-        changes = docManager.getChanges(changesFile);
-      }
-      prevUrl.push(prevPath);
-      diff.push(diffPath);
-    } else {
-      prevUrl.push(url);
-    }
-    history.push(docManager.getHistory(fileName, changes, key, countVersion));
-
-    const argss = {
-      apiUrl: siteUrl + configServer.get('apiUrl'),
-      file: {
-        name: fileName,
-        ext: fileUtility.getFileExtension(fileName, true),
-        uri: url,
-        version: countVersion
-      },
-      editor: {
-        type,
-        documentType: fileUtility.getFileType(fileName),
-        key,
-        callbackUrl: docManager.getCallback(fileName),
-        isEdit: canEdit,
-        mode: canEdit && mode !== 'view' ? 'edit' : 'view',
-        canBackToFolder: type !== 'embedded',
-        getServerUrl: docManager.getServerUrl(),
-        curUserHostAddress: docManager.curUserHostAddress(),
-        lang,
-        userid,
-        firstName,
-        lastName,
-        fileChoiceUrl,
-        plugins
-      },
-      history,
-      setHistoryData: {
-        url: prevUrl,
-        urlDiff: diff
-      }
-    };
-
-    res.render('editor', argss);
   } catch (ex) {
     logger.error(ex);
     res.status(500);

@@ -13,6 +13,9 @@ module.exports = {
     "max-len": ["error", {
       "ignoreComments": true,
       "ignoreTemplateLiterals": true
+    }],
+    "no-plusplus": ["error", {
+      "allowForLoopAfterthoughts": true
     }]
   }
 };
