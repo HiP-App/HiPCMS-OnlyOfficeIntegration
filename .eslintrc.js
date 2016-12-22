@@ -7,6 +7,7 @@ module.exports = {
     "import"
   ],
   "rules": {
+    "comma-dangle": ["error", "never"],
     "indent": ["error", 2],
     "no-prototype-builtins": 0,
     "max-len": ["error", {

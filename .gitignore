@@ -7,4 +7,5 @@ node_modules
 .idea
 .npm
 .node_repl_history
+public/files
 .tern-project
