@@ -39,12 +39,13 @@ const jwksUtils = require('jwks-utils');
 const jws = require('jws-jwk');
 const request = require('request');
 const morgan = require('morgan');
+const mammoth = require("mammoth");
 
 const logger = require('./logger');
 
 const configServer = config.get('server');
 const fileChoiceUrl = configServer.has('fileChoiceUrl') ?
-    configServer.get('fileChoiceUrl') : '';
+  configServer.get('fileChoiceUrl') : '';
 const siteUrl = configServer.get('siteUrl');
 const plugins = config.get('plugins');
 const permissionService = require('./permissions');
@@ -67,11 +68,9 @@ String.prototype.format = function format() {
   let text = this.toString();
 
   if (!arguments.length) return text;
-
-  for (let i = 0; i < arguments.length; i + 1) {
+  for (let i = 0; i < arguments.length; i++) {
     text = text.replace(new RegExp(`\\{${i}\\}`, 'gi'), arguments[i]);
   }
-
   return text;
 };
 
@@ -86,7 +85,7 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers',
       'Content-Type, Authorization, Content-Length, X-Requested-With, ' +
-        'access-control-allow-origin');
+      'access-control-allow-origin');
     res.sendStatus(200);
   } else {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -117,7 +116,7 @@ app.use((req, res, next) => {
       logger.info('auth');
       const authToken = req.get('Authorization');
       const at = authToken.slice('Bearer '.length, authToken.length);
-      const decodedToken = jwt.decode(at, { complete: true });
+      const decodedToken = jwt.decode(at, {complete: true});
       const kid = decodedToken.header.kid;
       const issuer = decodedToken.payload.iss;
 
@@ -148,7 +147,7 @@ app.use((req, res, next) => {
 });
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({extended: false}));
 
 // TODO still usable for administration? if not delete
 app.get('/', (req, res) => {
@@ -165,7 +164,7 @@ app.get('/', (req, res) => {
   } catch (ex) {
     logger.error(ex);
     res.status(500);
-    res.render('error', { message: 'Server error' });
+    res.render('error', {message: 'Server error'});
   }
 });
 
@@ -188,7 +187,7 @@ app.post('/upload', (req, res) => {
 
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
       fileSystem.unlinkSync(file.path);
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.writeHead(200, {'Content-Type': 'text/plain'});
       res.write('{ "error": "File size is incorrect"}');
       res.end();
       return;
@@ -203,14 +202,14 @@ app.post('/upload', (req, res) => {
 
     if (exts.indexOf(curExt) === -1) {
       fileSystem.unlinkSync(file.path);
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.writeHead(200, {'Content-Type': 'text/plain'});
       res.write('{ "error": "File type is not supported"}');
       res.end();
       return;
     }
 
     fileSystem.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.writeHead(200, {'Content-Type': 'text/plain'});
       if (err2) {
         res.write(`{ "error": "${err2}"}`);
       } else {
@@ -228,95 +227,20 @@ app.post('/upload', (req, res) => {
   });
 });
 
-// TODO change to a GET /topic/:id/convert
-app.get('/convert', (req, res) => {
-  const fileName = fileUtility.getFileName(req.query.filename);
-  const fileUri = docManager.getFileUri(fileName);
-  const fileExt = fileUtility.getFileExtension(fileName);
-  const fileType = fileUtility.getFileType(fileName);
-  const internalFileExt = docManager.getInternalExtension(fileType);
-  const response = res;
+app.get('/topic/:id/html', (req, res) => {
+  docManager.init(__dirname, req, res);
+  const topicId = fileUtility.getFileName(`${req.params.id}`);
+  const fileName = fileUtility.getFileName(`${req.params.id}.docx`);
 
-  const writeResult = function writeResult(filename, step, error) {
-    const result = {};
-
-    if (filename !== null) {
-      result.filename = filename;
-    }
-
-    if (step !== null) {
-      result.step = step;
-    }
-
-    if (error !== null) {
-      result.error = error;
-    }
-
-    response.write(JSON.stringify(result));
-    response.end();
-  };
-
-  const callback = function callback(err, data) {
-    if (err) {
-      if (err.name === 'ConnectionTimeoutError' ||
-        err.name === 'ResponseTimeoutError') {
-        writeResult(fileName, 0, null);
-      } else {
-        writeResult(null, null, JSON.stringify(err));
-      }
-      return;
-    }
-
-    try {
-      const responseUri = documentService.getResponseUri(data.toString());
-      const result = responseUri.key;
-      const newFileUri = responseUri.value;
-
-      if (result !== 100) {
-        writeResult(fileName, result, null);
-        return;
-      }
-
-      const correctName = docManager.getCorrectName(
-        fileUtility.getFileName(fileName, true) + internalFileExt);
-
-      const file = syncRequest('GET', newFileUri);
-      fileSystem.writeFileSync(
-          docManager.storagePath(correctName), file.getBody());
-
-      fileSystem.unlinkSync(docManager.storagePath(fileName));
-
-      const userAddress = docManager.curUserHostAddress();
-      const historyPath = docManager.historyPath(fileName, userAddress, true);
-      const correctHistoryPath = docManager.historyPath(
-          correctName, userAddress, true);
-
-      fileSystem.renameSync(historyPath, correctHistoryPath);
-
-      fileSystem.renameSync(
-          path.join(correctHistoryPath, `${fileName}.txt`),
-          path.join(correctHistoryPath, `${correctName}.txt`)
-      );
-
-      writeResult(correctName, null, null);
-    } catch (e) {
-      logger.error(e);
-      writeResult(null, null, 'Server error');
-    }
-  };
-
-  try {
-    if (configServer.get('convertedDocs').indexOf(fileExt) !== -1) {
-      const key = documentService.generateRevisionId(fileUri);
-      documentService.getConvertedUriAsync(
-        fileUri, fileExt, internalFileExt, key, callback);
-    } else {
-      writeResult(fileName, null, null);
-    }
-  } catch (ex) {
-    logger.error(ex);
-    writeResult(null, null, 'Server error');
+  if(!docManager.fileExists(fileName, topicId)) {
+    res.sendStatus(404);
   }
+
+  mammoth.convertToHtml({path: docManager.storagePath(fileName, topicId)})
+    .then(result => {
+      const html = result.value;
+      res.render('htmlDocument', { html: html });
+    }).done();
 });
 
 const deleteFolderRecursive = function deleteFolderRecursive(filePath) {
@@ -388,10 +312,8 @@ app.post('/track', (req, res) => {
   const initialFileName = fileUtility.getFileName(req.query.filename);
   let version = 0;
 
-  const processTrack = function processTrack(
-    response, body, fileName, userAddress) {
-    const processSave = function processSave(
-      body, fileName, userAddress, newVersion) {
+  const processTrack = function processTrack(response, body, fileName, userAddress) {
+    const processSave = function processSave(body, fileName, userAddress, newVersion) {
       let downloadUri = body.url;
       const curExt = fileUtility.getFileExtension(fileName);
       const downloadExt = fileUtility.getFileExtension(downloadUri);
@@ -518,7 +440,7 @@ app.post('/topic', (req, res) => {
   if (topicId === -1) {
     res.status(400, 'No Topic id given');
     res.render('error',
-      { message: `No Topic id given\n${JSON.stringify(req.body)}${JSON.stringify(req.query)}` }
+      {message: `No Topic id given\n${JSON.stringify(req.body)}${JSON.stringify(req.query)}`}
     );
   } else {
     // user has permission to edit a topic?
@@ -639,7 +561,7 @@ app.get('/topic/:id', (req, res) => {
   } catch (ex) {
     logger.error(ex);
     res.status(500);
-    res.render('error', { message: 'Server error' });
+    res.render('error', {message: 'Server error'});
   }
 });
 
