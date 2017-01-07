@@ -240,6 +240,9 @@ app.get('/topic/:id/html', (req, res) => {
     .then((result) => {
       const html = result.value;
       res.render('htmlDocument', { html });
+    }).catch((error) => {
+      logger.error(error.message);
+      res.sendStatus(500);
     }).done();
 });
 
