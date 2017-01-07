@@ -39,7 +39,7 @@ const jwksUtils = require('jwks-utils');
 const jws = require('jws-jwk');
 const request = require('request');
 const morgan = require('morgan');
-const mammoth = require("mammoth");
+const mammoth = require('mammoth');
 
 const logger = require('./logger');
 
@@ -116,7 +116,7 @@ app.use((req, res, next) => {
       logger.info('auth');
       const authToken = req.get('Authorization');
       const at = authToken.slice('Bearer '.length, authToken.length);
-      const decodedToken = jwt.decode(at, {complete: true});
+      const decodedToken = jwt.decode(at, { complete: true });
       const kid = decodedToken.header.kid;
       const issuer = decodedToken.payload.iss;
 
@@ -147,7 +147,7 @@ app.use((req, res, next) => {
 });
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.urlencoded({ extended: false }));
 
 // TODO still usable for administration? if not delete
 app.get('/', (req, res) => {
@@ -164,7 +164,7 @@ app.get('/', (req, res) => {
   } catch (ex) {
     logger.error(ex);
     res.status(500);
-    res.render('error', {message: 'Server error'});
+    res.render('error', { message: 'Server error' });
   }
 });
 
@@ -187,7 +187,7 @@ app.post('/upload', (req, res) => {
 
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
       fileSystem.unlinkSync(file.path);
-      res.writeHead(200, {'Content-Type': 'text/plain'});
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File size is incorrect"}');
       res.end();
       return;
@@ -202,14 +202,14 @@ app.post('/upload', (req, res) => {
 
     if (exts.indexOf(curExt) === -1) {
       fileSystem.unlinkSync(file.path);
-      res.writeHead(200, {'Content-Type': 'text/plain'});
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File type is not supported"}');
       res.end();
       return;
     }
 
     fileSystem.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
-      res.writeHead(200, {'Content-Type': 'text/plain'});
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
       if (err2) {
         res.write(`{ "error": "${err2}"}`);
       } else {
@@ -232,14 +232,14 @@ app.get('/topic/:id/html', (req, res) => {
   const topicId = fileUtility.getFileName(`${req.params.id}`);
   const fileName = fileUtility.getFileName(`${req.params.id}.docx`);
 
-  if(!docManager.fileExists(fileName, topicId)) {
+  if (!docManager.fileExists(fileName, topicId)) {
     res.sendStatus(404);
   }
 
-  mammoth.convertToHtml({path: docManager.storagePath(fileName, topicId)})
-    .then(result => {
+  mammoth.convertToHtml({ path: docManager.storagePath(fileName, topicId) })
+    .then((result) => {
       const html = result.value;
-      res.render('htmlDocument', { html: html });
+      res.render('htmlDocument', { html });
     }).done();
 });
 
@@ -440,7 +440,7 @@ app.post('/topic', (req, res) => {
   if (topicId === -1) {
     res.status(400, 'No Topic id given');
     res.render('error',
-      {message: `No Topic id given\n${JSON.stringify(req.body)}${JSON.stringify(req.query)}`}
+      { message: `No Topic id given\n${JSON.stringify(req.body)}${JSON.stringify(req.query)}` }
     );
   } else {
     // user has permission to edit a topic?
@@ -561,7 +561,7 @@ app.get('/topic/:id', (req, res) => {
   } catch (ex) {
     logger.error(ex);
     res.status(500);
-    res.render('error', {message: 'Server error'});
+    res.render('error', { message: 'Server error' });
   }
 });
 
