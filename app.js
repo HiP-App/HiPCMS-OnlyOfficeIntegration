@@ -249,18 +249,22 @@ const topicExists = function topicExists(id) {
   return docManager.fileExists(fileName, id);
 };
 
+const moveToTrash = function moveToTrash(filePath) {
+  fileSystem.unlinkSync(filePath);
+};
+
 const deleteTopic = (req, res) => {
   const id = req.params.id;
   try {
     docManager.init(__dirname, req, res);
 
-    const fileName = fileUtility.getFileName(`${id}.docx`);
-    const filePath = docManager.storagePath(fileName, id);
-
     if (!topicExists(id)) {
       res.status(405).send('File does not exist on disk'); // 405 = method not allowed (on file)
     } else {
-      fileSystem.unlinkSync(filePath);
+      const fileName = fileUtility.getFileName(`${id}.docx`);
+      const filePath = docManager.storagePath(fileName, id);
+
+      moveToTrash(filePath);
 
       const userAddress = docManager.curUserHostAddress();
       const historyPath = docManager.historyPath(fileName, userAddress, true);
