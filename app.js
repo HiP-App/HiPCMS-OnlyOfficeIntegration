@@ -304,7 +304,7 @@ app.post('/track', (req, res) => {
   let version = 0;
 
   const processTrack = function processTrack(response, body, fileName, userAddress) {
-    const processSave = function processSave(body, fileName, userAddress, newVersion) {
+    const processSave = function processSave(body, fileName, userAddress, newVersion) { // eslint-disable-line no-shadow
       let downloadUri = body.url;
       const curExt = fileUtility.getFileExtension(fileName);
       const downloadExt = fileUtility.getFileExtension(downloadUri);
@@ -318,13 +318,13 @@ app.post('/track', (req, res) => {
             downloadUri, downloadExt, curExt, key);
         } catch (ex) {
           logger.error(ex);
-          fileName = docManager.getCorrectName(
+          fileName = docManager.getCorrectName( // eslint-disable-line no-param-reassign
             fileUtility.getFileName(fileName, true) + downloadExt, userAddress);
         }
       }
 
       try {
-        const path = docManager.storagePath(fileName, topicId);
+        const path = docManager.storagePath(fileName, topicId); // eslint-disable-line no-shadow
 
         if (newVersion) {
           let historyPath = docManager.historyPath(fileName, topicId);
@@ -391,7 +391,7 @@ app.post('/track', (req, res) => {
     response.end();
   };
 
-  const readbody = function readbody(request, response, fileName, userAddress) {
+  const readbody = function readbody(request, response, fileName, userAddress) { // eslint-disable-line no-shadow
     let content = '';
     request.on('data', (data) => {
       content += data;
