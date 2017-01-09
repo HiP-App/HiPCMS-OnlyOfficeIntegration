@@ -4,7 +4,8 @@
   "private": false,
   "scripts": {
     "debug": "iron-node ./bin/www",
-    "start": "node ./bin/www"
+    "start": "node ./bin/www",
+    "test": "eslint *.js"
   },
   "description": "HiPCMS-OnlyOfficeIntegration",
   "author": {
