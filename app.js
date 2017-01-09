@@ -40,6 +40,7 @@ const jws = require('jws-jwk');
 const request = require('request');
 const morgan = require('morgan');
 const mammoth = require('mammoth');
+const dateformat = require('dateformat');
 
 const logger = require('./logger');
 
@@ -249,8 +250,28 @@ const topicExists = function topicExists(id) {
   return docManager.fileExists(fileName, id);
 };
 
-const moveToTrash = function moveToTrash(filePath) {
-  fs.unlinkSync(filePath);
+const createFolder = function createFolder(folderPath) {
+  try {
+    fs.accessSync(folderPath);
+  } catch (err) {
+    logger.info(`Folder ${folderPath} does not exist. Creating...`);
+    fs.mkdirSync(folderPath);
+  }
+};
+
+const moveToTrash = function moveToTrash(fileName, oldPath) {
+  const now = new Date();
+  const dirName = `${fileName}_${dateformat(now, 'yyyy-mm-dd-HH-MM-ss')}`;
+  const trashPath = path.join(docManager.dir, 'trash');
+  const newPath = path.join(trashPath, dirName);
+
+  createFolder(trashPath);
+  createFolder(newPath);
+  try {
+    fs.renameSync(oldPath, path.join(newPath, fileName));
+  } catch (err) {
+    logger.error(err);
+  }
 };
 
 const deleteTopic = (req, res) => {
@@ -264,12 +285,7 @@ const deleteTopic = (req, res) => {
       const fileName = fileUtility.getFileName(`${id}.docx`);
       const filePath = docManager.storagePath(fileName, id);
 
-      moveToTrash(filePath);
-
-      const userAddress = docManager.curUserHostAddress();
-      const historyPath = docManager.historyPath(fileName, userAddress, true);
-
-      deleteFolderRecursive(historyPath);
+      moveToTrash(id, path.join(filePath, '..')); // move the whole folder
 
       res.sendStatus(200);
     }
