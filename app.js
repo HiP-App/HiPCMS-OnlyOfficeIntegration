@@ -230,21 +230,6 @@ app.get('/topic/:id/html', (req, res) => {
     }).done();
 });
 
-const deleteFolderRecursive = function deleteFolderRecursive(filePath) {
-  if (fs.existsSync(filePath)) {
-    const files = fs.readdirSync(filePath);
-    files.forEach((file) => {
-      const curPath = `${filePath}/${file}`;
-      if (fs.lstatSync(curPath).isDirectory()) {
-        deleteFolderRecursive(curPath);
-      } else {
-        fs.unlinkSync(curPath);
-      }
-    });
-    fs.rmdirSync(path);
-  }
-};
-
 const topicExists = function topicExists(id) {
   const fileName = fileUtility.getFileName(`${id}.docx`);
   return docManager.fileExists(fileName, id);
