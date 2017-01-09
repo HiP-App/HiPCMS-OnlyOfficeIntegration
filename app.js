@@ -27,7 +27,7 @@ const express = require('express');
 const path = require('path');
 const favicon = require('serve-favicon');
 const bodyParser = require('body-parser');
-const fileSystem = require('fs');
+const fs = require('fs');
 const formidable = require('formidable');
 const syncRequest = require('sync-request');
 const config = require('config');
@@ -169,7 +169,7 @@ app.post('/upload', (req, res) => {
     file.name = docManager.getCorrectName(file.name);
 
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
-      fileSystem.unlinkSync(file.path);
+      fs.unlinkSync(file.path);
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File size is incorrect"}');
       res.end();
@@ -184,14 +184,14 @@ app.post('/upload', (req, res) => {
     const curExt = fileUtility.getFileExtension(file.name);
 
     if (exts.indexOf(curExt) === -1) {
-      fileSystem.unlinkSync(file.path);
+      fs.unlinkSync(file.path);
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File type is not supported"}');
       res.end();
       return;
     }
 
-    fileSystem.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
+    fs.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       if (err2) {
         res.write(`{ "error": "${err2}"}`);
@@ -230,17 +230,17 @@ app.get('/topic/:id/html', (req, res) => {
 });
 
 const deleteFolderRecursive = function deleteFolderRecursive(filePath) {
-  if (fileSystem.existsSync(filePath)) {
-    const files = fileSystem.readdirSync(filePath);
+  if (fs.existsSync(filePath)) {
+    const files = fs.readdirSync(filePath);
     files.forEach((file) => {
       const curPath = `${filePath}/${file}`;
-      if (fileSystem.lstatSync(curPath).isDirectory()) {
+      if (fs.lstatSync(curPath).isDirectory()) {
         deleteFolderRecursive(curPath);
       } else {
-        fileSystem.unlinkSync(curPath);
+        fs.unlinkSync(curPath);
       }
     });
-    fileSystem.rmdirSync(path);
+    fs.rmdirSync(path);
   }
 };
 
@@ -250,7 +250,7 @@ const topicExists = function topicExists(id) {
 };
 
 const moveToTrash = function moveToTrash(filePath) {
-  fileSystem.unlinkSync(filePath);
+  fs.unlinkSync(filePath);
 };
 
 const deleteTopic = (req, res) => {
@@ -343,26 +343,26 @@ app.post('/track', (req, res) => {
             const pathChanges = docManager.diffPath(
               fileName, topicId, version);
             const diffZip = syncRequest('GET', downloadZip);
-            fileSystem.writeFileSync(pathChanges, diffZip.getBody());
+            fs.writeFileSync(pathChanges, diffZip.getBody());
           }
 
           const changeshistory = body.changeshistory;
           if (changeshistory) {
             const pathChangesJson = docManager.changesPath(
               fileName, topicId, version);
-            fileSystem.writeFileSync(pathChangesJson, body.changeshistory);
+            fs.writeFileSync(pathChangesJson, body.changeshistory);
           }
 
           const pathKey = docManager.keyPath(fileName, topicId, version);
-          fileSystem.writeFileSync(pathKey, body.key);
+          fs.writeFileSync(pathKey, body.key);
 
           const pathPrev = docManager.prevFilePath(
             fileName, topicId, version);
-          fileSystem.writeFileSync(pathPrev, fileSystem.readFileSync(path));
+          fs.writeFileSync(pathPrev, fs.readFileSync(path));
         }
 
         const file = syncRequest('GET', downloadUri);
-        fileSystem.writeFileSync(path, file.getBody());
+        fs.writeFileSync(path, file.getBody());
       } catch (ex) {
         logger.error(ex);
       }
@@ -495,7 +495,7 @@ app.get('/topic/:id', (req, res) => {
       let diffPath = null;
       for (let i = 1; i < countVersion; i++) {
         const keyPath = docManager.keyPath(fileName, topicId, i);
-        const keyVersion = `${fileSystem.readFileSync(keyPath)}`;
+        const keyVersion = `${fs.readFileSync(keyPath)}`;
         history.push(docManager.getHistory(fileName, changes, keyVersion, i));
 
         prevUrl.push(prevPath);
