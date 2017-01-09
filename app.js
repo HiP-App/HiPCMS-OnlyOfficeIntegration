@@ -55,24 +55,7 @@ let userEmail;
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-String.prototype.hashCode = function hashCode() {
-  let i;
-  let len;
-  let ret;
-  for (ret = 0, i = 0, len = this.length; i < len; i++) {
-    ret = ((31 * ret) + this.charCodeAt(i)) << 0;
-  }
-  return ret;
-};
-String.prototype.format = function format() {
-  let text = this.toString();
-
-  if (!arguments.length) return text;
-  for (let i = 0; i < arguments.length; i++) {
-    text = text.replace(new RegExp(`\\{${i}\\}`, 'gi'), arguments[i]);
-  }
-  return text;
-};
+require('./stringExtensions');
 
 const app = express();
 
