@@ -27,7 +27,7 @@ const express = require('express');
 const path = require('path');
 const favicon = require('serve-favicon');
 const bodyParser = require('body-parser');
-const fileSystem = require('fs');
+const fs = require('fs');
 const formidable = require('formidable');
 const syncRequest = require('sync-request');
 const config = require('config');
@@ -40,6 +40,7 @@ const jws = require('jws-jwk');
 const request = require('request');
 const morgan = require('morgan');
 const mammoth = require('mammoth');
+const dateformat = require('dateformat');
 
 const logger = require('./logger');
 
@@ -55,24 +56,7 @@ let userEmail;
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-String.prototype.hashCode = function hashCode() {
-  let i;
-  let len;
-  let ret;
-  for (ret = 0, i = 0, len = this.length; i < len; i++) {
-    ret = ((31 * ret) + this.charCodeAt(i)) << 0;
-  }
-  return ret;
-};
-String.prototype.format = function format() {
-  let text = this.toString();
-
-  if (!arguments.length) return text;
-  for (let i = 0; i < arguments.length; i++) {
-    text = text.replace(new RegExp(`\\{${i}\\}`, 'gi'), arguments[i]);
-  }
-  return text;
-};
+require('./stringExtensions');
 
 const app = express();
 
@@ -186,7 +170,7 @@ app.post('/upload', (req, res) => {
     file.name = docManager.getCorrectName(file.name);
 
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
-      fileSystem.unlinkSync(file.path);
+      fs.unlinkSync(file.path);
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File size is incorrect"}');
       res.end();
@@ -201,14 +185,14 @@ app.post('/upload', (req, res) => {
     const curExt = fileUtility.getFileExtension(file.name);
 
     if (exts.indexOf(curExt) === -1) {
-      fileSystem.unlinkSync(file.path);
+      fs.unlinkSync(file.path);
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File type is not supported"}');
       res.end();
       return;
     }
 
-    fileSystem.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
+    fs.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       if (err2) {
         res.write(`{ "error": "${err2}"}`);
@@ -246,24 +230,33 @@ app.get('/topic/:id/html', (req, res) => {
     }).done();
 });
 
-const deleteFolderRecursive = function deleteFolderRecursive(filePath) {
-  if (fileSystem.existsSync(filePath)) {
-    const files = fileSystem.readdirSync(filePath);
-    files.forEach((file) => {
-      const curPath = `${filePath}/${file}`;
-      if (fileSystem.lstatSync(curPath).isDirectory()) {
-        deleteFolderRecursive(curPath);
-      } else {
-        fileSystem.unlinkSync(curPath);
-      }
-    });
-    fileSystem.rmdirSync(path);
-  }
-};
-
 const topicExists = function topicExists(id) {
   const fileName = fileUtility.getFileName(`${id}.docx`);
   return docManager.fileExists(fileName, id);
+};
+
+const createFolder = function createFolder(folderPath) {
+  try {
+    fs.accessSync(folderPath);
+  } catch (err) {
+    logger.info(`Folder ${folderPath} does not exist. Creating...`);
+    fs.mkdirSync(folderPath);
+  }
+};
+
+const moveToTrash = function moveToTrash(fileName, oldPath) {
+  const now = new Date();
+  const dirName = `${fileName}_${dateformat(now, 'yyyy-mm-dd-HH-MM-ss')}`;
+  const trashPath = path.join(docManager.dir, 'trash');
+  const newPath = path.join(trashPath, dirName);
+
+  createFolder(trashPath);
+  createFolder(newPath);
+  try {
+    fs.renameSync(oldPath, path.join(newPath, fileName));
+  } catch (err) {
+    logger.error(err);
+  }
 };
 
 const deleteTopic = (req, res) => {
@@ -271,18 +264,13 @@ const deleteTopic = (req, res) => {
   try {
     docManager.init(__dirname, req, res);
 
-    const fileName = fileUtility.getFileName(`${id}.docx`);
-    const filePath = docManager.storagePath(fileName, id);
-
     if (!topicExists(id)) {
       res.status(405).send('File does not exist on disk'); // 405 = method not allowed (on file)
     } else {
-      fileSystem.unlinkSync(filePath);
+      const fileName = fileUtility.getFileName(`${id}.docx`);
+      const filePath = docManager.storagePath(fileName, id);
 
-      const userAddress = docManager.curUserHostAddress();
-      const historyPath = docManager.historyPath(fileName, userAddress, true);
-
-      deleteFolderRecursive(historyPath);
+      moveToTrash(id, path.join(filePath, '..')); // move the whole folder
 
       res.sendStatus(200);
     }
@@ -316,7 +304,7 @@ app.post('/track', (req, res) => {
   let version = 0;
 
   const processTrack = function processTrack(response, body, fileName, userAddress) {
-    const processSave = function processSave(body, fileName, userAddress, newVersion) {
+    const processSave = function processSave(body, fileName, userAddress, newVersion) { // eslint-disable-line no-shadow
       let downloadUri = body.url;
       const curExt = fileUtility.getFileExtension(fileName);
       const downloadExt = fileUtility.getFileExtension(downloadUri);
@@ -330,13 +318,13 @@ app.post('/track', (req, res) => {
             downloadUri, downloadExt, curExt, key);
         } catch (ex) {
           logger.error(ex);
-          fileName = docManager.getCorrectName(
+          fileName = docManager.getCorrectName( // eslint-disable-line no-param-reassign
             fileUtility.getFileName(fileName, true) + downloadExt, userAddress);
         }
       }
 
       try {
-        const path = docManager.storagePath(fileName, topicId);
+        const path = docManager.storagePath(fileName, topicId); // eslint-disable-line no-shadow
 
         if (newVersion) {
           let historyPath = docManager.historyPath(fileName, topicId);
@@ -356,26 +344,26 @@ app.post('/track', (req, res) => {
             const pathChanges = docManager.diffPath(
               fileName, topicId, version);
             const diffZip = syncRequest('GET', downloadZip);
-            fileSystem.writeFileSync(pathChanges, diffZip.getBody());
+            fs.writeFileSync(pathChanges, diffZip.getBody());
           }
 
           const changeshistory = body.changeshistory;
           if (changeshistory) {
             const pathChangesJson = docManager.changesPath(
               fileName, topicId, version);
-            fileSystem.writeFileSync(pathChangesJson, body.changeshistory);
+            fs.writeFileSync(pathChangesJson, body.changeshistory);
           }
 
           const pathKey = docManager.keyPath(fileName, topicId, version);
-          fileSystem.writeFileSync(pathKey, body.key);
+          fs.writeFileSync(pathKey, body.key);
 
           const pathPrev = docManager.prevFilePath(
             fileName, topicId, version);
-          fileSystem.writeFileSync(pathPrev, fileSystem.readFileSync(path));
+          fs.writeFileSync(pathPrev, fs.readFileSync(path));
         }
 
         const file = syncRequest('GET', downloadUri);
-        fileSystem.writeFileSync(path, file.getBody());
+        fs.writeFileSync(path, file.getBody());
       } catch (ex) {
         logger.error(ex);
       }
@@ -403,7 +391,7 @@ app.post('/track', (req, res) => {
     response.end();
   };
 
-  const readbody = function readbody(request, response, fileName, userAddress) {
+  const readbody = function readbody(request, response, fileName, userAddress) { // eslint-disable-line no-shadow
     let content = '';
     request.on('data', (data) => {
       content += data;
@@ -508,7 +496,7 @@ app.get('/topic/:id', (req, res) => {
       let diffPath = null;
       for (let i = 1; i < countVersion; i++) {
         const keyPath = docManager.keyPath(fileName, topicId, i);
-        const keyVersion = `${fileSystem.readFileSync(keyPath)}`;
+        const keyVersion = `${fs.readFileSync(keyPath)}`;
         history.push(docManager.getHistory(fileName, changes, keyVersion, i));
 
         prevUrl.push(prevPath);

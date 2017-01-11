@@ -9,3 +9,5 @@ node_modules
 .node_repl_history
 public/files
 .tern-project
+yarn.lock
+trash

@@ -10,7 +10,7 @@ module.exports = {
     "comma-dangle": ["error", "never"],
     "indent": ["error", 2],
     "no-prototype-builtins": 0,
-    "max-len": ["error", {
+    "max-len": [1, {
       "ignoreComments": true,
       "ignoreTemplateLiterals": true
     }],
