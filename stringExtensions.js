@@ -2,6 +2,8 @@
 /* eslint-disable no-extend-native */
 /* eslint-disable prefer-rest-params */
 
+"use strict";
+
 String.prototype.hashCode = function hashCode() {
   let i;
   let len;
