@@ -17,6 +17,9 @@ function createResponseHandler(process) {
 const permissions = {};
 
 permissions.canEditTopicDocument = function (token, topicId, process) {
+  if (typeof process !== 'function') {
+    throw new TypeError(`expected process to be a function, got ${typeof process} instead`);
+  }
   return request.get(
     `${apiUrl}Api/Permissions/Topics/${topicId}/Permission/IsAssociatedTo`,
     createResponseHandler(process)
