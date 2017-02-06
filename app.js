@@ -105,7 +105,7 @@ app.use((req, res, next) => {
       const kid = decodedToken.header.kid;
       const issuer = decodedToken.payload.iss;
 
-      const url = `${issuer}.well-known/jwks`;
+      const url = `${issuer}/.well-known/jwks`;
 
       userEmail = decodedToken.payload.unique_name;
       token = at;
