@@ -42,6 +42,8 @@ const request = require('request');
 const morgan = require('morgan');
 const mammoth = require('mammoth');
 const dateformat = require('dateformat');
+const mmmagic = require('mmmagic');
+const magic = new mmmagic.Magic(mmmagic.MAGIC_MIME_TYPE);
 
 const logger = require('./logger');
 
@@ -153,13 +155,12 @@ app.get('/', (req, res) => {
   }
 });
 
-// TODO change to POST /topic/:id/upload
-app.post('/upload', (req, res) => {
+app.post('/topic/:id', (req, res) => {
   docManager.init(__dirname, req, res);
-  docManager.storagePath(''); // mkdir if not exist
+  const topicId = req.params.id;
+  docManager.storagePath('', topicId); // mkdir if not exist
 
-  const userIp = docManager.curUserHostAddress();
-  const uploadDir = `./public/${configServer.get('storageFolder')}/${userIp}`;
+  const uploadDir = `./public/${configServer.get('storageFolder')}`;
 
   const form = new formidable.IncomingForm();
   form.uploadDir = uploadDir;
@@ -168,46 +169,61 @@ app.post('/upload', (req, res) => {
   form.parse(req, (err, fields, files) => {
     const file = files.uploadedFile;
 
-    file.name = docManager.getCorrectName(file.name);
-
-    if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
-      fs.unlinkSync(file.path);
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.write('{ "error": "File size is incorrect"}');
-      res.end();
-      return;
-    }
-
-    const exts = [].concat(
-      configServer.get('viewedDocs'),
-      configServer.get('editedDocs'),
-      configServer.get('convertedDocs')
-    );
-    const curExt = fileUtility.getFileExtension(file.name);
-
-    if (exts.indexOf(curExt) === -1) {
-      fs.unlinkSync(file.path);
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.write('{ "error": "File type is not supported"}');
-      res.end();
-      return;
-    }
-
-    fs.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      if (err2) {
-        res.write(`{ "error": "${err2}"}`);
-      } else {
-        res.write(`{ "filename": "${file.name}"}`);
-
-        const userid = req.query.userid ? req.query.userid : 'uid-1';
-        const firstname = req.query.firstname ? req.query.firstname : 'Jonn';
-        const lastname = req.query.lastname ? req.query.lastname : 'Smith';
-
-        docManager.saveFileData(file.name, userid, `${firstname} ${lastname}`);
-        docManager.getFileData(file.name, docManager.curUserHostAddress());
+    magic.detectFile(file.path, function(err, result) {
+      //check if file has correct extension
+      if(result !== file.type) {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.write('{ "error": "File type does not match file extension"}');
+        res.end();
+        return;
       }
-      res.end();
+
+      // if file already exists move to trash
+      if (topicExists(topicId)) {
+        const fileName = fileUtility.getFileName(`${topicId}.docx`);
+        const filePath = docManager.storagePath(fileName, topicId);
+
+        moveToTrash(topicId, path.join(filePath, '..')); // move the whole folder
+      }
+
+      file.name = docManager.getCorrectName(`${topicId}.docx`, topicId);
+      logger.info(file.name);
+
+      if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
+        fs.unlinkSync(file.path);
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.write('{ "error": "File size is incorrect"}');
+        res.end();
+        return;
+      }
+
+      const exts = [].concat(
+        configServer.get('viewedDocs'),
+        configServer.get('editedDocs'),
+        configServer.get('convertedDocs')
+      );
+      const curExt = fileUtility.getFileExtension(file.name);
+
+      if (exts.indexOf(curExt) === -1) {
+        fs.unlinkSync(file.path);
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.write('{ "error": "File type is not supported"}');
+        res.end();
+        return;
+      }
+
+      fs.rename(file.path, `${uploadDir}/${topicId}/${file.name}`, (err2) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        if (err2) {
+          res.write(`{ "error": "${err2}"}`);
+        } else {
+          res.write(`{ "filename": "${file.name}"}`);
+
+          docManager.saveFileData(file.name, topicId, userEmail);
+          docManager.getFileData(file.name, topicId);
+        }
+        res.end();
+      });
     });
   });
 });
