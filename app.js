@@ -182,6 +182,7 @@ app.post('/topic/:id', (req, res) => {
       res.writeHead(400, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File type not allowed"}');
       res.end();
+      return;
     }
 
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
