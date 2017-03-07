@@ -42,8 +42,7 @@ const request = require('request');
 const morgan = require('morgan');
 const mammoth = require('mammoth');
 const dateformat = require('dateformat');
-const mmmagic = require('mmmagic');
-const magic = new mmmagic.Magic(mmmagic.MAGIC_MIME_TYPE);
+const readChunk = require('read-chunk');
 
 const logger = require('./logger');
 
@@ -169,62 +168,68 @@ app.post('/topic/:id', (req, res) => {
   form.parse(req, (err, fields, files) => {
     const file = files.uploadedFile;
 
-    magic.detectFile(file.path, function(err, result) {
-      //check if file has correct extension
-      if(result !== file.type) {
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.write('{ "error": "File type does not match file extension"}');
-        res.end();
-        return;
+    //check magic numbers for docx or doc document (could also be a zip file, but at least it's no executeable file)
+    const buf = new Uint8Array(readChunk.sync(file.path,0,4100));
+    if ( !(
+      // docx and other zip based formats
+      (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04) ||
+      (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x05 && buf[3] === 0x06) ||
+      // doc and other Microsoft Office formats
+      (buf[0] === 0xD0 && buf[1] === 0xCF && buf[2] === 0x11 && buf[3] === 0xE0 &&
+       buf[4] === 0xA1 && buf[5] === 0xB1 && buf[6] === 0x1A && buf[7] === 0xE1)
+      )) {
+      fs.unlinkSync(file.path);
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.write('{ "error": "File type not allowed"}');
+      res.end();
+    }
+
+    logger.info(buf[2] + ' | ' + buf[3]);
+
+    if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
+      fs.unlinkSync(file.path);
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.write('{ "error": "File size is incorrect"}');
+      res.end();
+      return;
+    }
+
+    const exts = [].concat(
+      configServer.get('viewedDocs'),
+      configServer.get('editedDocs'),
+      configServer.get('convertedDocs')
+    );
+    const curExt = fileUtility.getFileExtension(file.name);
+
+    if (exts.indexOf(curExt) === -1) {
+      fs.unlinkSync(file.path);
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.write('{ "error": "File type is not supported"}');
+      res.end();
+      return;
+    }
+
+    // if file already exists move to trash
+    if (topicExists(topicId)) {
+      const fileName = fileUtility.getFileName(`${topicId}.docx`);
+      const filePath = docManager.storagePath(fileName, topicId);
+
+      moveToTrash(topicId, path.join(filePath, '..')); // move the whole folder
+    }
+
+    const saveAs = docManager.getCorrectName(`${topicId}.docx`, topicId);
+    fs.rename(file.path, `${uploadDir}/${topicId}/${saveAs}`, (err2) => {
+      if (err2) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.write(`{ "error": "${err2}"}`);
+      } else {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.write(`{ "filename": "${saveAs}"}`);
+
+        docManager.saveFileData(saveAs, topicId, userEmail);
+        docManager.getFileData(saveAs, topicId);
       }
-
-      // if file already exists move to trash
-      if (topicExists(topicId)) {
-        const fileName = fileUtility.getFileName(`${topicId}.docx`);
-        const filePath = docManager.storagePath(fileName, topicId);
-
-        moveToTrash(topicId, path.join(filePath, '..')); // move the whole folder
-      }
-
-      file.name = docManager.getCorrectName(`${topicId}.docx`, topicId);
-      logger.info(file.name);
-
-      if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
-        fs.unlinkSync(file.path);
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.write('{ "error": "File size is incorrect"}');
-        res.end();
-        return;
-      }
-
-      const exts = [].concat(
-        configServer.get('viewedDocs'),
-        configServer.get('editedDocs'),
-        configServer.get('convertedDocs')
-      );
-      const curExt = fileUtility.getFileExtension(file.name);
-
-      if (exts.indexOf(curExt) === -1) {
-        fs.unlinkSync(file.path);
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.write('{ "error": "File type is not supported"}');
-        res.end();
-        return;
-      }
-
-      fs.rename(file.path, `${uploadDir}/${topicId}/${file.name}`, (err2) => {
-        if (err2) {
-          res.writeHead(500, { 'Content-Type': 'text/plain' });
-          res.write(`{ "error": "${err2}"}`);
-        } else {
-          res.writeHead(200, { 'Content-Type': 'text/plain' });
-          res.write(`{ "filename": "${file.name}"}`);
-
-          docManager.saveFileData(file.name, topicId, userEmail);
-          docManager.getFileData(file.name, topicId);
-        }
-        res.end();
-      });
+      res.end();
     });
   });
 });
