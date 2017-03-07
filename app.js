@@ -191,7 +191,7 @@ app.post('/topic/:id', (req, res) => {
 
       if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
         fs.unlinkSync(file.path);
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
         res.write('{ "error": "File size is incorrect"}');
         res.end();
         return;
@@ -206,17 +206,18 @@ app.post('/topic/:id', (req, res) => {
 
       if (exts.indexOf(curExt) === -1) {
         fs.unlinkSync(file.path);
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
         res.write('{ "error": "File type is not supported"}');
         res.end();
         return;
       }
 
       fs.rename(file.path, `${uploadDir}/${topicId}/${file.name}`, (err2) => {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
         if (err2) {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
           res.write(`{ "error": "${err2}"}`);
         } else {
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
           res.write(`{ "filename": "${file.name}"}`);
 
           docManager.saveFileData(file.name, topicId, userEmail);
