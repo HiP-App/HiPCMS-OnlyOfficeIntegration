@@ -184,8 +184,6 @@ app.post('/topic/:id', (req, res) => {
       res.end();
     }
 
-    logger.info(buf[2] + ' | ' + buf[3]);
-
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
       fs.unlinkSync(file.path);
       res.writeHead(400, { 'Content-Type': 'text/plain' });
