@@ -219,6 +219,13 @@ app.post('/topic/:id', (req, res) => {
   form.parse(req, (err, fields, files) => {
     const file = files.uploadedFile;
 
+    if(file === undefined) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.write('{ "error": "No file uploaded" }');
+      res.end();
+      return;
+    }
+
     // check magic numbers for docx or doc document (could also be a zip file, but at least it's no executeable file)
     const buf = new Uint8Array(readChunk.sync(file.path, 0, 4100));
     if (!(
@@ -231,7 +238,7 @@ app.post('/topic/:id', (req, res) => {
       )) {
       fs.unlinkSync(file.path);
       res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.write('{ "error": "File type not allowed"}');
+      res.write('{ "error": "File type not allowed" }');
       res.end();
       return;
     }
@@ -239,7 +246,7 @@ app.post('/topic/:id', (req, res) => {
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
       fs.unlinkSync(file.path);
       res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.write('{ "error": "File size is incorrect"}');
+      res.write('{ "error": "File size is incorrect" }');
       res.end();
       return;
     }
@@ -254,7 +261,7 @@ app.post('/topic/:id', (req, res) => {
     if (exts.indexOf(curExt) === -1) {
       fs.unlinkSync(file.path);
       res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.write('{ "error": "File type is not supported"}');
+      res.write('{ "error": "File type is not supported" }');
       res.end();
       return;
     }
@@ -271,10 +278,10 @@ app.post('/topic/:id', (req, res) => {
     fs.rename(file.path, `${uploadDir}/${topicId}/${saveAs}`, (err2) => {
       if (err2) {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.write(`{ "error": "${err2}"}`);
+        res.write(`{ "error": "${err2}" }`);
       } else {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.write(`{ "filename": "${saveAs}"}`);
+        res.write(`{ "filename": "${saveAs}" }`);
 
         docManager.saveFileData(saveAs, topicId, userEmail);
         docManager.getFileData(saveAs, topicId);
