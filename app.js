@@ -22,6 +22,7 @@
  * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
  *
  */
+
 "use strict";
 
 const express = require('express');
@@ -42,6 +43,7 @@ const request = require('request');
 const morgan = require('morgan');
 const mammoth = require('mammoth');
 const dateformat = require('dateformat');
+const readChunk = require('read-chunk');
 
 const logger = require('./logger');
 
@@ -58,6 +60,56 @@ let userEmail;
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 require('./stringExtensions');
+
+const topicExists = function topicExists(id) {
+  const fileName = fileUtility.getFileName(`${id}.docx`);
+  return docManager.fileExists(fileName, id);
+};
+
+const createFolder = function createFolder(folderPath) {
+  try {
+    fs.accessSync(folderPath);
+  } catch (err) {
+    logger.info(`Folder ${folderPath} does not exist. Creating...`);
+    fs.mkdirSync(folderPath);
+  }
+};
+
+const moveToTrash = function moveToTrash(fileName, oldPath) {
+  const now = new Date();
+  const dirName = `${fileName}_${dateformat(now, 'yyyy-mm-dd-HH-MM-ss')}`;
+  const trashPath = path.join(docManager.dir, 'trash');
+  const newPath = path.join(trashPath, dirName);
+
+  createFolder(trashPath);
+  createFolder(newPath);
+  try {
+    fs.renameSync(oldPath, path.join(newPath, fileName));
+  } catch (err) {
+    logger.error(err);
+  }
+};
+
+const deleteTopic = (req, res) => {
+  const id = req.params.id;
+  try {
+    docManager.init(__dirname, req, res);
+
+    if (!topicExists(id)) {
+      res.status(405).send('File does not exist on disk'); // 405 = method not allowed (on file)
+    } else {
+      const fileName = fileUtility.getFileName(`${id}.docx`);
+      const filePath = docManager.storagePath(fileName, id);
+
+      moveToTrash(id, path.join(filePath, '..')); // move the whole folder
+
+      res.sendStatus(200);
+    }
+  } catch (ex) {
+    logger.error(ex);
+    res.sendStatus(500);
+  }
+};
 
 const app = express();
 
@@ -153,13 +205,12 @@ app.get('/', (req, res) => {
   }
 });
 
-// TODO change to POST /topic/:id/upload
-app.post('/upload', (req, res) => {
+app.post('/topic/:id', (req, res) => {
   docManager.init(__dirname, req, res);
-  docManager.storagePath(''); // mkdir if not exist
+  const topicId = req.params.id;
+  docManager.storagePath('', topicId); // mkdir if not exist
 
-  const userIp = docManager.curUserHostAddress();
-  const uploadDir = `./public/${configServer.get('storageFolder')}/${userIp}`;
+  const uploadDir = `./public/${configServer.get('storageFolder')}`;
 
   const form = new formidable.IncomingForm();
   form.uploadDir = uploadDir;
@@ -168,12 +219,34 @@ app.post('/upload', (req, res) => {
   form.parse(req, (err, fields, files) => {
     const file = files.uploadedFile;
 
-    file.name = docManager.getCorrectName(file.name);
+    if(file === undefined) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.write('{ "error": "No file uploaded" }');
+      res.end();
+      return;
+    }
+
+    // check magic numbers for docx or doc document (could also be a zip file, but at least it's no executeable file)
+    const buf = new Uint8Array(readChunk.sync(file.path, 0, 4100));
+    if (!(
+      // docx and other zip based formats
+      (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04) ||
+      (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x05 && buf[3] === 0x06) ||
+      // doc and other Microsoft Office formats
+      (buf[0] === 0xD0 && buf[1] === 0xCF && buf[2] === 0x11 && buf[3] === 0xE0 &&
+       buf[4] === 0xA1 && buf[5] === 0xB1 && buf[6] === 0x1A && buf[7] === 0xE1)
+      )) {
+      fs.unlinkSync(file.path);
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.write('{ "error": "File type not allowed" }');
+      res.end();
+      return;
+    }
 
     if (configServer.get('maxFileSize') < file.size || file.size <= 0) {
       fs.unlinkSync(file.path);
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.write('{ "error": "File size is incorrect"}');
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.write('{ "error": "File size is incorrect" }');
       res.end();
       return;
     }
@@ -187,25 +260,31 @@ app.post('/upload', (req, res) => {
 
     if (exts.indexOf(curExt) === -1) {
       fs.unlinkSync(file.path);
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.write('{ "error": "File type is not supported"}');
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.write('{ "error": "File type is not supported" }');
       res.end();
       return;
     }
 
-    fs.rename(file.path, `${uploadDir}/${file.name}`, (err2) => {
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
+    // if file already exists move to trash
+    if (topicExists(topicId)) {
+      const fileName = fileUtility.getFileName(`${topicId}.docx`);
+      const filePath = docManager.storagePath(fileName, topicId);
+
+      moveToTrash(topicId, path.join(filePath, '..')); // move the whole folder
+    }
+
+    const saveAs = docManager.getCorrectName(`${topicId}.docx`, topicId);
+    fs.rename(file.path, `${uploadDir}/${topicId}/${saveAs}`, (err2) => {
       if (err2) {
-        res.write(`{ "error": "${err2}"}`);
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.write(`{ "error": "${err2}" }`);
       } else {
-        res.write(`{ "filename": "${file.name}"}`);
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.write(`{ "filename": "${saveAs}" }`);
 
-        const userid = req.query.userid ? req.query.userid : 'uid-1';
-        const firstname = req.query.firstname ? req.query.firstname : 'Jonn';
-        const lastname = req.query.lastname ? req.query.lastname : 'Smith';
-
-        docManager.saveFileData(file.name, userid, `${firstname} ${lastname}`);
-        docManager.getFileData(file.name, docManager.curUserHostAddress());
+        docManager.saveFileData(saveAs, topicId, userEmail);
+        docManager.getFileData(saveAs, topicId);
       }
       res.end();
     });
@@ -230,56 +309,6 @@ app.get('/topic/:id/html', (req, res) => {
       res.sendStatus(500);
     }).done();
 });
-
-const topicExists = function topicExists(id) {
-  const fileName = fileUtility.getFileName(`${id}.docx`);
-  return docManager.fileExists(fileName, id);
-};
-
-const createFolder = function createFolder(folderPath) {
-  try {
-    fs.accessSync(folderPath);
-  } catch (err) {
-    logger.info(`Folder ${folderPath} does not exist. Creating...`);
-    fs.mkdirSync(folderPath);
-  }
-};
-
-const moveToTrash = function moveToTrash(fileName, oldPath) {
-  const now = new Date();
-  const dirName = `${fileName}_${dateformat(now, 'yyyy-mm-dd-HH-MM-ss')}`;
-  const trashPath = path.join(docManager.dir, 'trash');
-  const newPath = path.join(trashPath, dirName);
-
-  createFolder(trashPath);
-  createFolder(newPath);
-  try {
-    fs.renameSync(oldPath, path.join(newPath, fileName));
-  } catch (err) {
-    logger.error(err);
-  }
-};
-
-const deleteTopic = (req, res) => {
-  const id = req.params.id;
-  try {
-    docManager.init(__dirname, req, res);
-
-    if (!topicExists(id)) {
-      res.status(405).send('File does not exist on disk'); // 405 = method not allowed (on file)
-    } else {
-      const fileName = fileUtility.getFileName(`${id}.docx`);
-      const filePath = docManager.storagePath(fileName, id);
-
-      moveToTrash(id, path.join(filePath, '..')); // move the whole folder
-
-      res.sendStatus(200);
-    }
-  } catch (ex) {
-    logger.error(ex);
-    res.sendStatus(500);
-  }
-};
 
 app.delete('/topic/:id', (req, res) => {
   const id = req.params.id;
