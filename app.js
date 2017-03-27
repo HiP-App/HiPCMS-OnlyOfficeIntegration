@@ -217,6 +217,18 @@ app.post('/topic/:id', (req, res) => {
   form.keepExtensions = true;
 
   form.parse(req, (err, fields, files) => {
+    const isDocx = buf => (
+      (buf[0] === 0x50 && buf[1] === 0x4B &&
+        buf[2] === 0x03 && buf[3] === 0x04) ||
+      (buf[0] === 0x50 && buf[1] === 0x4B &&
+        buf[2] === 0x05 && buf[3] === 0x06)
+    );
+    const isDoc = buf => (
+      buf[0] === 0xD0 && buf[1] === 0xCF &&
+      buf[2] === 0x11 && buf[3] === 0xE0 &&
+      buf[4] === 0xA1 && buf[5] === 0xB1 &&
+      buf[6] === 0x1A && buf[7] === 0xE1
+    );
     const file = files.uploadedFile;
 
     if (file === undefined) {
@@ -228,14 +240,7 @@ app.post('/topic/:id', (req, res) => {
 
     // check magic numbers for docx or doc document (could also be a zip file, but at least it's no executeable file)
     const buf = new Uint8Array(readChunk.sync(file.path, 0, 4100));
-    if (!(
-      // docx and other zip based formats
-      (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04) ||
-      (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x05 && buf[3] === 0x06) ||
-      // doc and other Microsoft Office formats
-      (buf[0] === 0xD0 && buf[1] === 0xCF && buf[2] === 0x11 && buf[3] === 0xE0 &&
-       buf[4] === 0xA1 && buf[5] === 0xB1 && buf[6] === 0x1A && buf[7] === 0xE1)
-      )) {
+    if (!(isDocx(buf) || isDoc(buf))) {
       fs.unlinkSync(file.path);
       res.writeHead(400, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File type not allowed" }');
