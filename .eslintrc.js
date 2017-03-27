@@ -8,6 +8,7 @@ module.exports = {
       "node": true
   },
   "rules": {
+    "linebreak-style": [0],
     "space-before-function-paren": ["error", "always"],
     "strict": [0],
     "comma-dangle": ["error", "never"],
