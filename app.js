@@ -61,12 +61,12 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 require('./stringExtensions');
 
-const topicExists = function topicExists(id) {
+const topicExists = function topicExists (id) {
   const fileName = fileUtility.getFileName(`${id}.docx`);
   return docManager.fileExists(fileName, id);
 };
 
-const createFolder = function createFolder(folderPath) {
+const createFolder = function createFolder (folderPath) {
   try {
     fs.accessSync(folderPath);
   } catch (err) {
@@ -75,7 +75,7 @@ const createFolder = function createFolder(folderPath) {
   }
 };
 
-const moveToTrash = function moveToTrash(fileName, oldPath) {
+const moveToTrash = function moveToTrash (fileName, oldPath) {
   const now = new Date();
   const dirName = `${fileName}_${dateformat(now, 'yyyy-mm-dd-HH-MM-ss')}`;
   const trashPath = path.join(docManager.dir, 'trash');
@@ -333,8 +333,8 @@ app.post('/track', (req, res) => {
   const initialFileName = fileUtility.getFileName(req.query.filename);
   let version = 0;
 
-  const processTrack = function processTrack(response, body, fileName, userAddress) {
-    const processSave = function processSave(body, fileName, userAddress, newVersion) { // eslint-disable-line no-shadow
+  const processTrack = function processTrack (response, body, fileName, userAddress) {
+    const processSave = function processSave (body, fileName, userAddress, newVersion) { // eslint-disable-line no-shadow
       let downloadUri = body.url;
       const curExt = fileUtility.getFileExtension(fileName);
       const downloadExt = fileUtility.getFileExtension(downloadUri);
@@ -421,7 +421,7 @@ app.post('/track', (req, res) => {
     response.end();
   };
 
-  const readbody = function readbody(request, response, fileName, userAddress) { // eslint-disable-line no-shadow
+  const readbody = function readbody (request, response, fileName, userAddress) { // eslint-disable-line no-shadow
     let content = '';
     request.on('data', (data) => {
       content += data;

@@ -1,5 +1,5 @@
 module.exports = {
-  "extends": "airbnb/base",
+  "extends": "airbnb-base",
   "installedESLint": true,
   "plugins": [
     "import"
@@ -8,6 +8,7 @@ module.exports = {
       "node": true
   },
   "rules": {
+    "space-before-function-paren": ["error", "always"],
     "strict": [0],
     "comma-dangle": ["error", "never"],
     "indent": ["error", 2],
