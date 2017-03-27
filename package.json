@@ -5,10 +5,8 @@
   "scripts": {
     "debug": "iron-node ./bin/www",
     "lint": "eslint *.js",
-    "lint:tfs": "eslint *.js --rule 'linebreak-style: [\"error\", \"windows\"]'",
     "start": "node ./bin/www",
-    "test": "npm run lint && mocha test/*.test.js",
-    "test:tfs": "npm run lint:tfs && mocha test/*.test.js"
+    "test": "npm run lint && mocha test/*.test.js"
   },
   "description": "HiPCMS-OnlyOfficeIntegration",
   "author": {
