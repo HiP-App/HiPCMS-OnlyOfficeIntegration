@@ -4,8 +4,9 @@
   "private": false,
   "scripts": {
     "debug": "iron-node ./bin/www",
+    "lint": "eslint *.js",
     "start": "node ./bin/www",
-    "test": "eslint *.js && mocha test/*.test.js"
+    "test": "npm run lint && mocha test/*.test.js"
   },
   "description": "HiPCMS-OnlyOfficeIntegration",
   "author": {
