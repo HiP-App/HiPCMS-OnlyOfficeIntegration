@@ -2,9 +2,9 @@
 /* eslint-disable no-extend-native */
 /* eslint-disable prefer-rest-params */
 
-"use strict";
+'use strict';
 
-String.prototype.hashCode = function hashCode() {
+String.prototype.hashCode = function hashCode () {
   let i;
   let len;
   let ret;
@@ -13,7 +13,7 @@ String.prototype.hashCode = function hashCode() {
   }
   return ret;
 };
-String.prototype.format = function format() {
+String.prototype.format = function format () {
   let text = this.toString();
 
   if (!arguments.length) return text;

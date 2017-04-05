@@ -23,7 +23,7 @@
  *
  */
 
-"use strict";
+'use strict';
 
 const express = require('express');
 const path = require('path');
@@ -61,12 +61,12 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 require('./stringExtensions');
 
-const topicExists = function topicExists(id) {
+const topicExists = function topicExists (id) {
   const fileName = fileUtility.getFileName(`${id}.docx`);
   return docManager.fileExists(fileName, id);
 };
 
-const createFolder = function createFolder(folderPath) {
+const createFolder = function createFolder (folderPath) {
   try {
     fs.accessSync(folderPath);
   } catch (err) {
@@ -75,7 +75,7 @@ const createFolder = function createFolder(folderPath) {
   }
 };
 
-const moveToTrash = function moveToTrash(fileName, oldPath) {
+const moveToTrash = function moveToTrash (fileName, oldPath) {
   const now = new Date();
   const dirName = `${fileName}_${dateformat(now, 'yyyy-mm-dd-HH-MM-ss')}`;
   const trashPath = path.join(docManager.dir, 'trash');
@@ -217,9 +217,21 @@ app.post('/topic/:id', (req, res) => {
   form.keepExtensions = true;
 
   form.parse(req, (err, fields, files) => {
+    const isDocx = buf => (
+      (buf[0] === 0x50 && buf[1] === 0x4B &&
+        buf[2] === 0x03 && buf[3] === 0x04) ||
+      (buf[0] === 0x50 && buf[1] === 0x4B &&
+        buf[2] === 0x05 && buf[3] === 0x06)
+    );
+    const isDoc = buf => (
+      buf[0] === 0xD0 && buf[1] === 0xCF &&
+      buf[2] === 0x11 && buf[3] === 0xE0 &&
+      buf[4] === 0xA1 && buf[5] === 0xB1 &&
+      buf[6] === 0x1A && buf[7] === 0xE1
+    );
     const file = files.uploadedFile;
 
-    if(file === undefined) {
+    if (file === undefined) {
       res.writeHead(400, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "No file uploaded" }');
       res.end();
@@ -228,14 +240,7 @@ app.post('/topic/:id', (req, res) => {
 
     // check magic numbers for docx or doc document (could also be a zip file, but at least it's no executeable file)
     const buf = new Uint8Array(readChunk.sync(file.path, 0, 4100));
-    if (!(
-      // docx and other zip based formats
-      (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04) ||
-      (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x05 && buf[3] === 0x06) ||
-      // doc and other Microsoft Office formats
-      (buf[0] === 0xD0 && buf[1] === 0xCF && buf[2] === 0x11 && buf[3] === 0xE0 &&
-       buf[4] === 0xA1 && buf[5] === 0xB1 && buf[6] === 0x1A && buf[7] === 0xE1)
-      )) {
+    if (!(isDocx(buf) || isDoc(buf))) {
       fs.unlinkSync(file.path);
       res.writeHead(400, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "File type not allowed" }');
@@ -333,8 +338,8 @@ app.post('/track', (req, res) => {
   const initialFileName = fileUtility.getFileName(req.query.filename);
   let version = 0;
 
-  const processTrack = function processTrack(response, body, fileName, userAddress) {
-    const processSave = function processSave(body, fileName, userAddress, newVersion) { // eslint-disable-line no-shadow
+  const processTrack = function processTrack (response, body, fileName, userAddress) {
+    const processSave = function processSave (body, fileName, userAddress, newVersion) { // eslint-disable-line no-shadow
       let downloadUri = body.url;
       const curExt = fileUtility.getFileExtension(fileName);
       const downloadExt = fileUtility.getFileExtension(downloadUri);
@@ -421,7 +426,7 @@ app.post('/track', (req, res) => {
     response.end();
   };
 
-  const readbody = function readbody(request, response, fileName, userAddress) { // eslint-disable-line no-shadow
+  const readbody = function readbody (request, response, fileName, userAddress) { // eslint-disable-line no-shadow
     let content = '';
     request.on('data', (data) => {
       content += data;
