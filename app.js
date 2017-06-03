@@ -23,7 +23,7 @@
  *
  */
 
-"use strict";
+'use strict';
 
 const express = require('express');
 const path = require('path');
@@ -53,6 +53,7 @@ const fileChoiceUrl = configServer.has('fileChoiceUrl') ?
 const siteUrl = configServer.get('siteUrl');
 const plugins = config.get('plugins');
 const permissionService = require('./permissions');
+
 const onlyOfficeScope = config.get('scope');
 
 let token;
@@ -229,7 +230,7 @@ app.post('/topic/:id', (req, res) => {
   form.parse(req, (err, fields, files) => {
     const file = files.uploadedFile;
 
-    if(file === undefined) {
+    if (file === undefined) {
       res.writeHead(400, { 'Content-Type': 'text/plain' });
       res.write('{ "error": "No file uploaded" }');
       res.end();

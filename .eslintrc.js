@@ -1,6 +1,9 @@
 module.exports = {
   "extends": "airbnb",
   "installedESLint": true,
+  "env": {
+    "node": true
+  },
   "plugins": [
     "react",
     "jsx-a11y",
@@ -16,6 +19,7 @@ module.exports = {
     }],
     "no-plusplus": ["error", {
       "allowForLoopAfterthoughts": true
-    }]
+    }],
+    "strict": 0
   }
 };
