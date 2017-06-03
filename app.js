@@ -54,6 +54,8 @@ const siteUrl = configServer.get('siteUrl');
 const plugins = config.get('plugins');
 const permissionService = require('./permissions');
 
+const onlyOfficeScope = config.get('scope');
+
 let token;
 let userEmail;
 
@@ -157,8 +159,9 @@ app.use((req, res, next) => {
       const kid = decodedToken.header.kid;
       const issuer = decodedToken.payload.iss;
 
-      const url = `${issuer}/.well-known/jwks`;
+      const url = `${issuer}/.well-known/openid-configuration/jwks`;
 
+      // FIXME: pretty sure that this could leak the token / email to another user if requests arrive at roughly the same time
       userEmail = decodedToken.payload.unique_name;
       token = at;
 
@@ -170,8 +173,16 @@ app.use((req, res, next) => {
           const jwk = jwksUtils.findJWK(kid, body);
 
           if (jws.verify(at, jwk)) {
-            logger.info('client authenticated');
-            next();
+            // Check wether the scope contains the expected scope
+            const scopes = decodedToken.payload.scope;
+            const scopeOkay = scopes.some(scope => scope === onlyOfficeScope);
+            if (scopeOkay) {
+              logger.info('client authenticated');
+              next();
+            } else {
+              // the client is authenticated, but not authorized to call this API
+              res.sendStatus(403);
+            }
           } else {
             throw new Error();
           }

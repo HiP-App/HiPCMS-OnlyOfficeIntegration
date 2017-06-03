@@ -1,6 +1,9 @@
 module.exports = {
   "extends": "airbnb-base",
   "installedESLint": true,
+  "env": {
+    "node": true
+  },
   "plugins": [
     "import"
   ],
@@ -20,6 +23,7 @@ module.exports = {
     }],
     "no-plusplus": ["error", {
       "allowForLoopAfterthoughts": true
-    }]
+    }],
+    "strict": 0
   }
 };
