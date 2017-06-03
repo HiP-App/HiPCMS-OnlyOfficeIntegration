@@ -36,5 +36,6 @@
       "ocr/config.json",
       "clipart/config.json"
     ]
-  }
+  },
+  "scope": "HiPCMS-OnlyOfficeIntegration"
 }
