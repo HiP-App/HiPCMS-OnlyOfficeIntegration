@@ -11,3 +11,4 @@ public/files
 .tern-project
 yarn.lock
 trash
+package-lock.json
