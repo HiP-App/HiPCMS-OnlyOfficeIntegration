@@ -15,10 +15,6 @@ These integration is build with [NodeJs](https://nodejs.org/en/).
 * Run the application with `npm start`.
 * Open [localhost:3000](http://localhost:3000/) in your browser.
 
-## Documentation
-
-Not yet done.
-
 ## Contact
 
 HiP (History in Paderborn) ist eine Plattform der: 
