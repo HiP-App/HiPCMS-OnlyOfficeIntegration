@@ -4,8 +4,8 @@ const config = require('config');
 
 const apiUrl = config.get('server').get('cmsApiUrl');
 
-function createResponseHandler(process) {
-  return function responseHandler(error, response) {
+function createResponseHandler (process) {
+  return function responseHandler (error, response) {
     if (error) {
       process(error);
       return;
@@ -14,9 +14,7 @@ function createResponseHandler(process) {
   };
 }
 
-const permissions = {};
-
-permissions.canEditTopicDocument = function (token, topicId, process) {
+function canEditTopicDocument (token, topicId, process) {
   if (typeof process !== 'function') {
     throw new TypeError(`expected process to be a function, got ${typeof process} instead`);
   }
@@ -24,13 +22,16 @@ permissions.canEditTopicDocument = function (token, topicId, process) {
     `${apiUrl}Api/Permissions/Topics/${topicId}/Permission/IsAssociatedTo`,
     createResponseHandler(process)
   ).auth(null, null, true, token);
-};
+}
 
-permissions.isAllowedToEdit = function (token, topicId, process) {
+function isAllowedToEdit (token, topicId, process) {
   return request.get(
     `${apiUrl}Api/Permissions/Topics/${topicId}/Permission/IsAllowedToEdit`,
     createResponseHandler(process)
   ).auth(null, null, true, token);
-};
+}
 
-module.exports = permissions;
+module.exports = {
+  canEditTopicDocument,
+  isAllowedToEdit
+};
