@@ -175,6 +175,8 @@ app.use((req, res, next) => {
           } else {
             throw new Error();
           }
+        } else {
+          throw new Error();
         }
       });
     } catch (e) {

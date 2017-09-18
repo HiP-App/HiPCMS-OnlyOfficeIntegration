@@ -1,4 +1,4 @@
-/* eslint-disable no-bitwise*/
+/* eslint-disable no-bitwise */
 /* eslint-disable no-extend-native */
 /* eslint-disable prefer-rest-params */
 
