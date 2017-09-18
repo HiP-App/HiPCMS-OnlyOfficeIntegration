@@ -28,7 +28,7 @@
     "read-chunk": "^2.0.0",
     "request": "^2.79.0",
     "serve-favicon": "~2.3.2",
-    "sync-request": "~3.0.1",
+    "sync-request": "~4.0.3",
     "urllib": "~2.19.0",
     "xml2js": "~0.4.17"
   },
