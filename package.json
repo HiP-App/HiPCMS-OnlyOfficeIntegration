@@ -27,7 +27,7 @@
     "morgan": "^1.7.0",
     "read-chunk": "^2.0.0",
     "request": "^2.79.0",
-    "serve-favicon": "~2.3.2",
+    "serve-favicon": "~2.4.5",
     "sync-request": "~3.0.1",
     "urllib": "~2.19.0",
     "xml2js": "~0.4.17"
